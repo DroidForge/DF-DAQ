@@ -134,8 +134,6 @@ class tabdemo(QTabWidget):
                 self.DataOutput.setDisabled(True)
                 
                 self.FileOutput.setText(str(os.getcwd()) + '\Temp.txt')
-                
-                self.DAQ.setLog(self.Log)
             
 #==============================================================================
 # Input Parameters: none
@@ -152,34 +150,8 @@ class tabdemo(QTabWidget):
         
         self.logMsg('DF Board: ' + str(self.COMDis.currentText()), False, 'black')   #Write the Teensy COM Port to the Log
         #self.logMsg('Firmware: ' + self.FirmDis.text(), False, 'black') #Write the Firmware Version to the Log
-        if('SN0001' in self.FirmDis.text()):#Thermistor DAQ Firmware Detected 
-            self.logMsg('Thermistor DAQ', False, 'black') #Write the Firmware Use to the Log
-            self.logMsg('Hardware: SK2009 (Required)', False, 'black') #Write the Firmware Use to the Log
-            self.rateMax = 5
-            #WARNING!! SK2009 Hardware Required!!
-            #Voltage (mV) = ADC Value * 0.0078125
-            #Current (mA) = 2.5 / 15,000 = 0.1666667
-            #Resistance (Ω) = Voltage / Current = (ADC Value * 0.0078125) (mV) / 0.1666667 (mA) = ADC Value * 0.0468749 (Ω)
-            self.DataPrefix.setText('POS')  #Set the Prefix to SEN for Position       
-            Value = 'Resistance'
-            self.DataTime.setText('10')     #Set the default Test Time (seconds)
-            self.HardChannels.setText('64') #Set the default number of channels (number)
-            self.DataRate.setText(str(self.rateMax))      #Set the Rate to 5 (Samples/Second)
-            self.SetRate()
-            
-        elif('SN0002' in self.FirmDis.text()):#Sensor DAQ Firmware Detected
-            self.logMsg('Sensor DAQ', False, 'black') #Write the Firmware Use to the Log
-            self.logMsg('Hardware: SK2003 (Required)', False, 'black') #Write the Firmware Use to the Log
-            self.rateMax = 10
-            #WARNING!! SK2003 Hardware Required!!
-            #Voltage (mV) = ADC Value * 0.0078125
-            self.DataPrefix.setText('SEN')  #Set the Prefix to SEN for Senosr
-            Value = 'Voltage'
-            self.DataTime.setText('10')     #Set the default Test Time (seconds)
-            self.HardChannels.setText('32') #Set the default number of channels (number)
-            self.DataRate.setText(str(self.rateMax))     #Set the Rate to 5 (Samples/Second)
-            self.SetRate()
-        elif(FirmStartup[0] == 'P'):
+        
+        if(FirmStartup[0] == 'P'):
             self.DataOutput.clear()
             for key in self.pressureOptions:
                 self.DataOutput.addItem(str(key))
@@ -187,22 +159,17 @@ class tabdemo(QTabWidget):
             if index >= 0:
                 self.DataOutput.setCurrentIndex(index)
             self.logMsg('Hardware Type: Pressure', False, 'black')
+            self.DataTime.setText('--') #Disable rate
+            
         else: #Other Firmware Detected
             self.HardChannels.setText('NA') #Set the Channesl LineEdit to NA
             self.DataRate.setText('0')      #Set the Rate LineEdit to 0
             self.rateMax = 0
-            Value = 'Raw'
             
         self.HardChannels.setText(FirmStartup[2])
         self.rateMax = float(FirmStartup[3])
         self.logMsg('Max Sample Rate: ' + str(self.rateMax), False, 'black')
         self.DataRate.setText(str(int(FirmStartup[4])))
-            
-        # for i in range(0, len(self.OutputOptions)): #Loop through all the Output Options in the DataOutpu ComboBox
-        #     if(str(self.DataOutput.itemText(i)) == Value):  #Set DataOutput to the Value
-        #         self.DataOutput.setCurrentIndex(i)
-        #         break
-        #self.updateMult()                   #Update the Multiplier LineEdit
             
 #==============================================================================
 # Input Parameters: msg (Str), bold (Bool), color (Str)
@@ -336,7 +303,7 @@ class tabdemo(QTabWidget):
         #Test Time
         self.DataTime = QLineEdit()
         self.DataTime.setMaximumWidth(55)
-        self.DataTime.setText('10')
+        self.DataTime.setText('--')
         self.DataTime.setToolTip('Length of recording (seconds)')
         self.DataTime.textChanged.connect(self.OnlyAllowInt2)
         
@@ -346,13 +313,6 @@ class tabdemo(QTabWidget):
         self.DataRate.setToolTip('Sets the rate of the firmware in Samples/Second')
         self.DataRate.setText('5')
         self.DataRate.textChanged.connect(self.SetRate)
-        
-        #Set rate
-        # self.SetRateButton = QPushButton()
-        # self.SetRateButton.setFixedWidth(80)
-        # self.SetRateButton.setText('Set Rate')
-        # self.SetRateButton.setToolTip('Sends the rate to the firmware')
-        # self.SetRateButton.clicked.connect(self.SetRate)
         
         #Add a label to the Test Time Grid Point
         h7layout.addWidget(self.DataTime)
@@ -453,9 +413,6 @@ class tabdemo(QTabWidget):
         
         self.xAll.append(self.x[-1])
         
-        mult = len(self.xAll)
-        
-        #self.y.append((randint(0,25) + mult) * (mult/15))
         self.y.append(self.DAQ.Read(str(self.COMDis.currentText())))
         self.yAll.append(self.y[-1])
     
@@ -483,8 +440,6 @@ class tabdemo(QTabWidget):
         self.y = []#[randint(0,100) for _ in range(100)]
         self.xAll = self.x
         self.yAll = self.y
-        
-        #self.data_line = self.plot.plot(self.x, self.y, pen=self.pen)
         
         self.timer = QtCore.QTimer()
         self.timer.setInterval(50)
