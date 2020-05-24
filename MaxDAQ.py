@@ -58,12 +58,14 @@ class tabdemo(QTabWidget):
 
         CurrentSoftwareVersion = '1.0.0'                        #Update as needed. Don't forget to update the Revision History as well
         
-        self.AppName = "Max-DAQ - " + CurrentSoftwareVersion    #Sets the name in the upper left hand corner of the GUI
+        self.AppName = "DF-DAQ - " + CurrentSoftwareVersion    #Sets the name in the upper left hand corner of the GUI
 
         self.setWindowIcon(QIcon('MaxLogo1.ico'))   #Sets the GUI Icon
 
         self.pressureOptions = ['PSI','HPA','KPA','MBAR','BAR','CMH2O','INH2O','MMHG']
         self.oldRate = 0
+        self.dataOutputMultiplier = 1
+        self.outputType = ''
 
         self.tab1 = QWidget()                       #Define Tab1
         self.tab2 = QWidget()                       #Define Tab2
@@ -71,9 +73,9 @@ class tabdemo(QTabWidget):
         self.tab4 = QWidget()                       #Define Tab4
 	
         self.addTab(self.tab1,"Acquisition")       #Add Tab 1 to the QTabWidget
-        self.addTab(self.tab2,"Plot")              #Add Tab 2 to the QTabWidget
+        #self.addTab(self.tab2,"Plot")              #Add Tab 2 to the QTabWidget
         self.addTab(self.tab3,"Live Data")         #Add Live Data Tab to QTabWidget
-        self.addTab(self.tab4,"Settings")          #Add Settings Tab to QTabWidget
+        #self.addTab(self.tab4,"Settings")          #Add Settings Tab to QTabWidget
 
         self.tab1UI()                               #Run the Tab 1 setup
         self.tab2UI()
@@ -153,6 +155,7 @@ class tabdemo(QTabWidget):
         
         if(FirmStartup[0] == 'P'):
             self.DataOutput.clear()
+            self.outputType = 'Pressure'
             for key in self.pressureOptions:
                 self.DataOutput.addItem(str(key))
             index = self.DataOutput.findText(FirmStartup[1], QtCore.Qt.MatchFixedString)
@@ -244,7 +247,7 @@ class tabdemo(QTabWidget):
         self.FirmDis.setReadOnly(True)
         self.FirmDis.setDisabled(True)
         self.FirmDis.setMaximumWidth(80)
-        self.FirmDis.setToolTip('Firmware on Teensy')
+        self.FirmDis.setToolTip('Firmware on Device')
         
         #Channels
         self.HardChannels = QLineEdit()
@@ -291,7 +294,7 @@ class tabdemo(QTabWidget):
             self.DataOutput.addItem(str(key))
         self.DataOutput.model().sort(0)
         self.DataOutput.setToolTip('Sets the Multiplier for the incomming data')
-        #self.DataOutput.currentIndexChanged.connect(self.updateMult)        
+        self.DataOutput.currentIndexChanged.connect(self.convertOutput)        
         
         #Multiplier
         self.DataMultiplier = QLineEdit()
@@ -413,7 +416,7 @@ class tabdemo(QTabWidget):
         
         self.xAll.append(self.x[-1])
         
-        self.y.append(self.DAQ.Read(str(self.COMDis.currentText())))
+        self.y.append(self.DAQ.Read(str(self.COMDis.currentText())) * self.dataOutputMultiplier)
         self.yAll.append(self.y[-1])
     
         if(self.plotWidth.currentIndex() != 0):
@@ -424,7 +427,7 @@ class tabdemo(QTabWidget):
     
         self.data_line.setData(self.xLive, self.yLive)
 
-    def tab3UI(self):
+    def tab3UI(self): #Live Data Plot
         vlayout = QVBoxLayout()
         hlayout = QHBoxLayout()
         
@@ -432,6 +435,7 @@ class tabdemo(QTabWidget):
         self.plot.setBackground('w')
         self.plot.setTitle("Live Data Plot")
         self.plot.showGrid(x=True, y=True)
+        self.plot.setLabel('bottom', 'Sample (N)', color = 'gray', size = 40)
         
         self.pen = pg.mkPen(color=(59,187,228), width=2)
         self.penGray = pg.mkPen(color=(180,180,180), width=2)
@@ -460,6 +464,12 @@ class tabdemo(QTabWidget):
         self.plotFixedWidth.setValue(100)
         self.plotFixedWidth.valueChanged.connect(self.plotUpdateData)
         
+        self.plotZero = QPushButton()
+        self.plotZero.setText('Zero')
+        self.plotZero.setToolTip('Zeroes the sensor data')
+        self.plotZero.clicked.connect(self.zeroSensor)
+        self.plotZero.setDisabled(True)
+        
         self.plotStop = QPushButton()
         self.plotStop.setText('Stop')
         self.plotStop.setToolTip('Stops the data Stream')
@@ -467,6 +477,7 @@ class tabdemo(QTabWidget):
         
         vlayout.addWidget(self.plotWidth)
         vlayout.addWidget(self.plotFixedWidth)
+        vlayout.addWidget(self.plotZero)
         vlayout.addStretch(1)
         vlayout.addWidget(self.plotStop)
         
@@ -803,6 +814,29 @@ class tabdemo(QTabWidget):
         
         return xdata, ydata
         
+    def convertOutput(self):
+        if(self.outputType == 'Pressure'):
+            if(self.DataOutput.currentText() == 'PSI'):
+                self.dataOutputMultiplier = 1.0
+            elif(self.DataOutput.currentText() == 'HPA'):
+                self.dataOutputMultiplier = 6894.7572932
+            elif(self.DataOutput.currentText() == 'BAR'):
+                self.dataOutputMultiplier = 0.068947572932
+            elif(self.DataOutput.currentText() == 'MBAR'):
+                self.dataOutputMultiplier = 68.947572932
+            elif(self.DataOutput.currentText() == 'KPA'):
+                self.dataOutputMultiplier = 6.8947572932
+            elif(self.DataOutput.currentText() == 'CMH2O'):
+                self.dataOutputMultiplier = 70.3069578296
+            elif(self.DataOutput.currentText() == 'INH2O'):
+                self.dataOutputMultiplier = 27.6799048425
+            elif(self.DataOutput.currentText() == 'MMHG'):
+                self.dataOutputMultiplier = 51.71492
+                
+            self.plot.setLabel('left', 'Pressure (' + str(self.DataOutput.currentText()) + ')', color = 'gray', size = 40)
+
+        self.DataMultiplier.setText("{:.2f}".format(self.dataOutputMultiplier))
+        
 #==============================================================================
 # Input Parameters: none
 # Output Returns: none
@@ -814,7 +848,7 @@ class tabdemo(QTabWidget):
     def ToggleStartStop(self):
         self.Start = not(self.Start)
         if(not(self.Start)):
-            print ('Abort Test')
+            print ('Stop Test')
             self.timer.stop()
             self.DAQ.Abort = True
             self.DAQ.CloseCOM(str(self.COMDis.currentText()))
@@ -825,11 +859,24 @@ class tabdemo(QTabWidget):
             
             #Reset the start button
             self.ButtonStart.setText('Start')
+            self.plotStop.setText('Start')
+            self.plotZero.setDisabled(True)
             self.ButtonStart.setToolTip('Start Recording Data')
+            
+            self.logMsg('Saving Data...', True, 'black')
+            
+            if(self.SaveData(self.fileUniqueStr)):
+                self.logMsg(self.FileOutput.text(), False, 'black')
+                self.logMsg('...Data Saved!', True, '#00aa00')
+            else:
+                self.logMsg('...Data Could Not be Saved', True, 'red')
+                self.logMsg('Check Recovery Files', True, 'red')
             
         else:
             print ('Starting Test')
             self.ButtonStart.setText('Stop')
+            self.plotStop.setText('Stop')
+            self.plotZero.setDisabled(False)
             self.ButtonStart.setToolTip('Stop Recording Data')
             
             self.setCurrentIndex(2)
@@ -920,7 +967,28 @@ class tabdemo(QTabWidget):
 
             # else: # COM Port not found
             #     self.logMsg('ERROR! - Teensy COM Port NOT Found', True, 'red')
-                
+    
+    def zeroSensor(self):
+        self.logMsg('Zeroing Sensor Output', False, 'blue')
+        if(self.DAQ.zero()):
+            self.logMsg('Zero Set', False, 'green')
+        else:
+            self.logMsg('Zero NOT Set', False, 'red')
+    
+    def SaveData(self, fname):
+        print ("Saving to Excel")
+        return 1
+        # try:
+        #     self.df.to_excel(str(fname))
+        #     print ("File Saved!")
+        #     return True
+        # except:
+        #     print ("ERROR - Could not save Excel File!")
+        #     RecoveryPath = str(os.getcwd()) + 'Recovery-' + str(datetime.datetime.now().strftime('%H%M%S'))
+        #     self.df.to_excel(RecoveryPath)
+        #     print ("File Recovery avaliable at: " + RecoveryPath)
+        #     return False
+        
 #==============================================================================
 # Input Parameters: none
 # Output Returns: none

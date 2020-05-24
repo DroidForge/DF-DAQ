@@ -5,7 +5,6 @@ Created on Tue May 02 10:17:41 2017
 @author: Nick Arbanas
 """
 
-from PyQt5.QtGui import QTextCursor
 import serial
 import serial.tools.list_ports as PortList
 import os
@@ -19,6 +18,7 @@ class MaxtecDAQ():
         self.Abort = False
         self.__Temperature = 'NA'
         self.__comOpen = False
+        self.__reading = 0
     
     def findPort(self):
         print ('Finding Port')
@@ -36,7 +36,8 @@ class MaxtecDAQ():
         CommandList = {"Version"    :"V\n",#Firmware Version
                        "DataRate"   :"o" + data + "\n",    #[Command Type][Multiplier][]
                        "Setup"      :"x\n",#Setup Info
-                       "Read"       :"r\n"
+                       "Read"       :"r\n",#Read Sensor
+                       "Zero"       :"z\n" #Zero Sensor Reading
                        }
         #print ('Command: ' + CommandList[Command])
         ser.write(CommandList[Command].encode('latin_1'))
@@ -73,6 +74,15 @@ class MaxtecDAQ():
             except serial.SerialException:
                 print ("Error, Serial Port Already Closed")
             return 'NA'
+        
+    def zero(self):
+        if(self.__reading):
+            print('Zeroing the sensor')
+            self.__SendCommand('Zero', self.__ser, '')
+            return 1
+        else:
+            print('DAQ must be reading to zero the sensor')
+            return 0
         
     def getFirmVer(self, COM):
         print ('Opening COM: ' + str(COM))
@@ -113,6 +123,8 @@ class MaxtecDAQ():
             self.__ser.port = Com
             self.__ser.timeout = 1
             
+            self.__reading = 1
+            
             try:
                 self.__ser.open()
                 print ('Serial Opened on Port for Reading: ' + Com)
@@ -136,18 +148,5 @@ class MaxtecDAQ():
     def CloseCOM(self, Com):
         self.__ser.close()
         self.__comOpen = False
-
-    def SaveData(self, fname):
-        print ("Saving to Excel")
-        try:
-            self.df.to_excel(str(fname))
-            print ("File Saved!")
-            return True
-        except:
-            print ("ERROR - Could not save Excel File!")
-            RecoveryPath = str(os.getcwd()) + 'Recovery-' + str(datetime.datetime.now().strftime('%H%M%S'))
-            self.df.to_excel(RecoveryPath)
-            print ("File Recovery avaliable at: " + RecoveryPath)
-            return False
-
-List = ['POS01', 'POS02', 'POS03', 'POS04', 'POS05', 'POS06', 'POS07', 'POS08', 'POS09', 'POS10', 'POS11', 'POS12', 'POS13', 'POS14', 'POS15', 'POS16', 'POS17', 'POS18', 'POS19', 'POS20', 'POS21', 'POS22', 'POS23', 'POS24', 'POS25', 'POS26', 'POS27', 'POS28', 'POS29', 'POS30', 'POS31', 'POS32']
+        
+        self.reading = 0
