@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+DF-DAQ - DroidForge Data Aquisition application
+
 **Author**
 Nick Arbanas
 DroidForge Engineering
@@ -38,7 +40,7 @@ class QHLine(QFrame):
 # Input Parameters: none
 # Output Returns: none
 #
-# Description: This Class draws a horizontal line when called
+# Description: This Class draws a vertical line when called
 #==============================================================================
 class QVLine(QFrame):
     def __init__(self):
@@ -50,7 +52,7 @@ class QVLine(QFrame):
 # Input Parameters: QTabWidget
 # Output Returns: none (PyQt GUI)
 #
-# Description: This the main function for the PyQt application
+# Description: This is the main function for the PyQt application
 #==============================================================================
 class tabdemo(QTabWidget):
     def __init__(self, parent = None):
