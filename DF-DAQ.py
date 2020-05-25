@@ -61,7 +61,7 @@ class tabdemo(QTabWidget):
         
         self.AppName = "DF-DAQ - " + CurrentSoftwareVersion    #Sets the name in the upper left hand corner of the GUI
 
-        self.setWindowIcon(QIcon('MaxLogo1.ico'))   #Sets the GUI Icon
+        self.setWindowIcon(QIcon('DFIcon-01.ico'))   #Sets the GUI Icon
 
         self.pressureOptions = ['PSI','HPA','KPA','MBAR','BAR','CMH2O','INH2O','MMHG']
         self.oldRate = 0
