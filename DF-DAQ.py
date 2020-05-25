@@ -449,6 +449,7 @@ class tabdemo(QTabWidget):
         hlayout = QHBoxLayout()
         
         self.plot = pg.PlotWidget()
+        self.plot.setToolTip('Right click plot for options')
         self.plot.setBackground('w')
         self.plot.setTitle("Live Data Plot")
         self.plot.showGrid(x=True, y=True)
@@ -497,6 +498,7 @@ class tabdemo(QTabWidget):
         vlayout.addWidget(self.plotWidth)
         vlayout.addWidget(self.plotFixedWidth)
         vlayout.addWidget(self.plotZero)
+        vlayout.addWidget(QLabel('(Right click plot for\nadditional options)'))
         vlayout.addStretch(1)
         vlayout.addWidget(self.plotStop)
         
