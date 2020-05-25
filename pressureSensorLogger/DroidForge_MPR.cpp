@@ -165,23 +165,37 @@ float Adafruit_MPRLS::readPressure(enum outputUnits outUnits) {
 /**************************************************************************/
 /*!
     @brief Zero the pressure
+    @param dataPeriod the data sampling period in milliseconds (number of milliseconds between reads)
     @returns None
+
+    Note: dataPeriod was required as the sensor zero error is dependant on the data rate. Thus the 
+    values used to calculate the zero point must be sampled at the same rate as the user application
 */
 /**************************************************************************/
-void Adafruit_MPRLS::autoZero(void){
+void Adafruit_MPRLS::autoZero(uint32_t dataPeriod){
+  if(DEBUG)Serial.println("Zeroing the device using period: " + String(dataPeriod));
+  uint32_t start_time = millis();
   int32_t raw_psi = readData();
   if(DEBUG)Serial.println(raw_psi);
   if (raw_psi == 0xFFFFFFFF) {
     return;
   }
-  for(int i = 0; i<NUM_AUTO_ZERO_SAMPLES-1; i++){
+  raw_psi = 0;
+  for(int i = 0; i<NUM_AUTO_ZERO_SAMPLES; i++){
+    while((millis()-start_time)<dataPeriod){
+      //wait for the next sample to match the data sampling rate
+    }
+    start_time = millis();
+    if(DEBUG)Serial.println("start_time: "+String(start_time));
     int32_t tempP = readData();
     if(DEBUG)Serial.print(tempP);
     if(DEBUG)Serial.print("\t\t");
-    raw_psi += tempP;
+    if(i>=NUM_AUTO_ZERO_SAMPLES_IGNORE){
+      raw_psi += tempP;
+    }
     if(DEBUG)Serial.println(raw_psi);
   }
-  raw_psi /= NUM_AUTO_ZERO_SAMPLES;
+  raw_psi /= NUM_AUTO_ZERO_SAMPLES-NUM_AUTO_ZERO_SAMPLES_IGNORE;
   if(DEBUG)Serial.print("Final: ");
   if(DEBUG)Serial.println(raw_psi);
   
@@ -196,6 +210,7 @@ void Adafruit_MPRLS::autoZero(void){
         offsetError = raw_psi - C_COUNT_MIN;
       break;
   }
+  delay(dataPeriod);
 }
 
 /**************************************************************************/

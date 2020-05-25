@@ -49,7 +49,8 @@ enum mprTransFunc{
 #define C_COUNT_MIN 0x333333
 #define C_COUNT_MAX 0xCCCCCD
 
-#define NUM_AUTO_ZERO_SAMPLES 1
+#define NUM_AUTO_ZERO_SAMPLES 7
+#define NUM_AUTO_ZERO_SAMPLES_IGNORE 2
 
 enum outputUnits{
   PSI,
@@ -80,7 +81,7 @@ public:
 
   uint8_t readStatus(void);
   float readPressure(enum outputUnits outUnits = HPA);
-  void autoZero(void);
+  void autoZero(uint32_t dataPeriod);
 
 private:
   uint32_t readData(void);

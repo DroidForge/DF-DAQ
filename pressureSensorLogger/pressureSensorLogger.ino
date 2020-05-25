@@ -19,13 +19,14 @@
 #define DEVICE_SETUP "P-PSI-1-50-10"
 #define HELP_STRING DEVICE_INFO " v" VERSION_NUMBER "\nCommand Interface:\n"\
                     "All commands are single characters. Line ending is ignored\n"\
-                    "'s' -> run\n"\
+                    "'s' -> start\n"\
                     "'p' -> stop\n"\
                     "'r' -> single read\n"\
                     "'h' or '?' -> this help page\n"\
                     "'i' -> DEVICE_INFO (" DEVICE_INFO ")\n"\
                     "'v' -> VERSION_NUMBER (" VERSION_NUMBER ")\n"\
                     "'t' -> DEVICE_TYPE (" DEVICE_TYPE ")\n"\
+                    "'x' -> DEVICE_SETUP (default setup values in format [deviceUID]-[units]-[numChannels]-[maxSampleRate]-[defaultSampleRate]\n"\
                     "'o' -> SAMPLE_PERIOD (units: milliseconds, valid values: 1-60000)\n"\
                     "'z' -> run auto zero function (zeros sensor to current pressure level)\n"\
                     "'u'[DATA] -> returns current UNITS when only 'u' is sent.\n\tSending [DATA] after 'u' changes units based on the following values:\n"\
@@ -55,6 +56,13 @@ enum outputUnits currentUnits = PSI;
 String unitStrings[NUM_UNITS];
 uint16_t sample_period = DEFAULT_SAMPLE_PERIOD;
 
+uint32_t singleReadSamplePeriod = 0;
+uint32_t timeSinceLastSingleRead = 0;
+uint32_t lastSingleReadTime = 0;
+#define RUNNING_AVG_LENGTH 8
+uint16_t singleReadPeriodArray[RUNNING_AVG_LENGTH];
+int runningAvgPoint = 0;
+
 void setup() {
   unitStrings[PSI] = "PSI";
   unitStrings[HPA] = "HPA";
@@ -78,7 +86,7 @@ void setup() {
   }
   if(DEBUG) Serial.println("Found pressure sensor");
 
-  mpr.autoZero();
+  mpr.autoZero(sample_period);
   start_time = millis();
 }
 
@@ -108,7 +116,11 @@ void loop() {
       running = false;
     }
     else if(command == 'z'){
-      mpr.autoZero();
+      if(singleReadSamplePeriod > 61000 || singleReadSamplePeriod == 0){
+        mpr.autoZero(sample_period);
+      }else{
+        mpr.autoZero(singleReadSamplePeriod);
+      }
     }
     else if(command == 'h' || command == '?'){
       running = false;
@@ -130,6 +142,22 @@ void loop() {
       else if(command == 'r'){
         float pressure_psi = mpr.readPressure(currentUnits);
         Serial.println(pressure_psi, 4);
+        if(lastSingleReadTime != 0){
+          //calculate time since last single read
+          timeSinceLastSingleRead = millis()-lastSingleReadTime;
+          singleReadPeriodArray[runningAvgPoint] = timeSinceLastSingleRead;
+          
+          //update the running average circular buffer with latest read
+          runningAvgPoint = (runningAvgPoint + 1)%RUNNING_AVG_LENGTH;
+          
+          //calculate the running average
+          singleReadSamplePeriod = 0;
+          for(int i = 0; i<RUNNING_AVG_LENGTH; i++){
+            singleReadSamplePeriod += singleReadPeriodArray[i];
+          }
+          singleReadSamplePeriod /= RUNNING_AVG_LENGTH;
+        }
+        lastSingleReadTime = millis();
       }
       else if(command == 'o'){
         if(Serial.available()>1){
