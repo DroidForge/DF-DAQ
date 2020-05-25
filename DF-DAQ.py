@@ -22,7 +22,6 @@ Red: #800000
 from PyQt5.QtWidgets import QFrame, QTabWidget
 from functools import partial
 import pyqtgraph as pg
-from random import randint
 
 #==============================================================================
 # Input Parameters: none
@@ -84,7 +83,7 @@ class tabdemo(QTabWidget):
         self.tab3UI()
         self.tab4UI()
 
-        self.DAQ = MaxtecDAQ()                      #Create a MaxtecDAQ object
+        self.DAQ = DF_DAQ()                      #Create a DF_DAQ object
  
         self.logMsg('Date: ' + datetime.datetime.now().strftime('%m-%d-%y'), False, 'black')    #Write the Start Date to the Log
         self.logMsg('Software: ' + self.AppName, False, 'black')                                #Write the Software Version to the Log
@@ -104,38 +103,43 @@ class tabdemo(QTabWidget):
 # ComboBox with all avaliable Teensy Ports. 
 #==============================================================================
     def SearchCOMs(self):
-        COM = self.DAQ.findPort()   #Use the MaxtecDAQ 'findPort' method to autodetect the Teensy
+        COM = self.DAQ.findPort()   #Use the DF_DAQ 'findPort' method to autodetect the Teensy
         self.COMDis.clear()     #Reset the COM Port ComboBox
 
         if(len(COM) < 1):           #Teensy not found, list of COM Ports returned
-            print('No Teensy Connected')
+            print('No DF Hardware Connected')
             self.COMDis.addItem('NA')           #Set the COM Port ComboBox to NA
             self.COMDis.setDisabled(True)       #Disable the COM Port ComboBox
             self.FirmDis.setText('NA')          #Set the Firmware LineEdit to NA
             self.DataOutput.setCurrentIndex(0)  #Set the Output ComboBox to the first index
             self.HardChannels.setText('NA')     #Set the Channels LineEdit to NA
-            self.DataRate.setText('0')          #Set the Rate LineEdit to 0
+            self.DataRate.setText('10')          #Set the Rate LineEdit to 0
+            self.rateMax = 10    
+            self.disableGUI(True)
             self.updateMult()                   #Update the Multiplier LineEdit
+            self.logMsg('Please plug in the DroidForge hardware and refresh the COM', True, 'blue')
         else:                       #Teensy Found
-            print('Teensy(s) Connected')
-            if (len(COM) == 1):     #Only ONE Teensy Connected
+            print('DF Hardware Connected')
+            self.disableGUI(False)
+            if (len(COM) == 1):     #Only ONE DF Hardware Connected
                 
                 self.COMDis.addItem(str(COM[0]))                        #Add the prot to the COM Port ComboBox
                 self.COMDis.setDisabled(True)                           #Disable the COM Port ComboBOx
-            else:                   #Multiple Teensys Connected
+            else:                   #Multiple DF Hardware Connected
                 for i in range (0, len(COM)):                           #Loop Through all found COM Ports
                     self.COMDis.addItem(str(COM[i]))                    #Add all items to the COM Port ComboBox
                 self.COMDis.setDisabled(False)                          #Enable the COM Port ComboBox
-            #self.updateHardware()                                       #Update all the Hardware Information
+
             if (self.FirmDis.text() == 'NA'):
-                self.DataRate.setText('-')
+                print('No Firmware Detected')
+                self.disableGUI(True)
+                self.DataRate.setText('10')
                 self.DataPrefix.setText("")
-                self.DataPrefix.setDisabled(True)
                 self.removeTab(1)
-                self.DataTime.setDisabled(True)
+                self.rateMax = 10
                 self.DataMultiplier.setText('NA')
-                self.DataTime.setText('NA')
-                self.DataOutput.setDisabled(True)
+                self.DataTime.setText('-')
+                
                 
                 self.FileOutput.setText(str(os.getcwd()) + '\Temp.txt')
             
@@ -146,35 +150,46 @@ class tabdemo(QTabWidget):
 # Description: This function sets all the Hardware information with for the 
 # selected COM Port.
 #==============================================================================                
-                
+               
+    def disableGUI(self, disabled):
+        self.DataPrefix.setDisabled(disabled)
+        self.DataRate.setDisabled(disabled)
+        self.DataTime.setDisabled(disabled)
+        self.DataOutput.setDisabled(disabled)
+        self.plotStop.setDisabled(disabled)
+        self.ButtonStart.setDisabled(disabled)
+        self.plotWidth.setDisabled(disabled)
+    
     def updateHardware(self):
-        self.logMsg('Searching for Attached Hardware...<br>', False, 'black')
-        #self.FirmDis.setText(self.DAQ.getFirmVer(str(self.COMDis.currentText())))      #Use the MaxtecDAQ 'getFirmVer' method to get the current firmware form the selected Teensy
-        FirmStartup = self.DAQ.getSetup(str(self.COMDis.currentText())).split('-')
-        
-        self.logMsg('DF Board: ' + str(self.COMDis.currentText()), False, 'black')   #Write the Teensy COM Port to the Log
-        #self.logMsg('Firmware: ' + self.FirmDis.text(), False, 'black') #Write the Firmware Version to the Log
-        
-        if(FirmStartup[0] == 'P'):
-            self.DataOutput.clear()
-            self.outputType = 'Pressure'
-            for key in self.pressureOptions:
-                self.DataOutput.addItem(str(key))
-            index = self.DataOutput.findText(FirmStartup[1], QtCore.Qt.MatchFixedString)
-            if index >= 0:
-                self.DataOutput.setCurrentIndex(index)
-            self.logMsg('Hardware Type: Pressure', False, 'black')
-            self.DataTime.setText('--') #Disable rate
+        print('Updating Hardware')
+        if(self.COMDis.currentText() != 'NA'): #Do nothing if there is no DF Hardware Detected
+            self.logMsg('Searching for Attached Hardware...<br>', False, 'black')
+            self.FirmDis.setText(self.DAQ.getFirmVer(str(self.COMDis.currentText())))      #Use the DF_DAQ 'getFirmVer' method to get the current firmware form the selected Teensy
+            FirmStartup = self.DAQ.getSetup(str(self.COMDis.currentText())).split('-')
             
-        else: #Other Firmware Detected
-            self.HardChannels.setText('NA') #Set the Channesl LineEdit to NA
-            self.DataRate.setText('0')      #Set the Rate LineEdit to 0
-            self.rateMax = 0
+            self.logMsg('DF Board: ' + str(self.COMDis.currentText()), False, 'black')   #Write the Teensy COM Port to the Log
+            self.logMsg('Firmware: ' + self.FirmDis.text(), False, 'black') #Write the Firmware Version to the Log
             
-        self.HardChannels.setText(FirmStartup[2])
-        self.rateMax = float(FirmStartup[3])
-        self.logMsg('Max Sample Rate: ' + str(self.rateMax), False, 'black')
-        self.DataRate.setText(str(int(FirmStartup[4])))
+            if(FirmStartup[0] == 'P'):
+                self.DataOutput.clear()
+                self.outputType = 'Pressure'
+                for key in self.pressureOptions:
+                    self.DataOutput.addItem(str(key))
+                index = self.DataOutput.findText(FirmStartup[1], QtCore.Qt.MatchFixedString)
+                if index >= 0:
+                    self.DataOutput.setCurrentIndex(index)
+                self.logMsg('Hardware Type: Pressure', False, 'black')
+                self.DataTime.setText('-') #Disable rate
+                
+            else: #Other Firmware Detected
+                self.HardChannels.setText('NA') #Set the Channesl LineEdit to NA
+                self.DataRate.setText('10')      #Set the Rate LineEdit to 0
+                self.rateMax = 10
+                
+            self.HardChannels.setText(FirmStartup[2])
+            self.rateMax = float(FirmStartup[3])
+            self.logMsg('Max Sample Rate: ' + str(self.rateMax), False, 'black')
+            self.DataRate.setText(str(int(FirmStartup[4])))
             
 #==============================================================================
 # Input Parameters: msg (Str), bold (Bool), color (Str)
@@ -287,7 +302,7 @@ class tabdemo(QTabWidget):
         self.DataPrefix.setToolTip('Sets the prefix for the recorded data')
         self.DataPrefix.setMaximumWidth(80)
         
-        self.OutputOptions = {'Voltage':'0.0078125', 'Resistance':'0.0468749', 'Temp 700':'0.0468749', 'Temp 800':'0.0468749', 'Raw':'1', 'Custom':''}        
+        self.OutputOptions = {'N/A':'1.0'}        
         
         #Output
         self.DataOutput = QComboBox()
@@ -308,15 +323,15 @@ class tabdemo(QTabWidget):
         #Test Time
         self.DataTime = QLineEdit()
         self.DataTime.setMaximumWidth(55)
-        self.DataTime.setText('--')
-        self.DataTime.setToolTip('Length of recording (seconds)')
+        self.DataTime.setText('-')
+        self.DataTime.setToolTip('Length of recording (seconds). Set to 0 to disable')
         self.DataTime.textChanged.connect(self.OnlyAllowInt2)
         
         #Rate
         self.DataRate = QLineEdit()
         self.DataRate.setMaximumWidth(55)
         self.DataRate.setToolTip('Sets the rate of the firmware in Samples/Second')
-        self.DataRate.setText('5')
+        self.DataRate.setText('10')
         self.DataRate.textChanged.connect(self.SetRate)
         
         #Add a label to the Test Time Grid Point
@@ -458,6 +473,7 @@ class tabdemo(QTabWidget):
         self.plotWidth.addItem('Fixed Width')
         self.plotWidth.setToolTip('Sets the x window for streaming data')
         self.plotWidth.currentIndexChanged.connect(self.plotUpdateData)   
+        self.plotWidth.setDisabled(True)
         
         self.plotFixedWidth = QSpinBox()
         self.plotFixedWidth.hide()
@@ -465,6 +481,7 @@ class tabdemo(QTabWidget):
         self.plotFixedWidth.setMaximum(100000)
         self.plotFixedWidth.setValue(100)
         self.plotFixedWidth.valueChanged.connect(self.plotUpdateData)
+        self.plotFixedWidth.setDisabled(True)
         
         self.plotZero = QPushButton()
         self.plotZero.setText('Zero')
@@ -473,7 +490,7 @@ class tabdemo(QTabWidget):
         self.plotZero.setDisabled(True)
         
         self.plotStop = QPushButton()
-        self.plotStop.setText('Stop')
+        self.plotStop.setText('Start')
         self.plotStop.setToolTip('Stops the data Stream')
         self.plotStop.clicked.connect(self.ToggleStartStop)
         
@@ -717,6 +734,9 @@ class tabdemo(QTabWidget):
                 #If there is an invalid character, replace the character with an empty string ('')
                 if len(arg)>0: arg=arg.replace(arg[c],'')
         
+        if(arg == '0'):
+            arg = '-'
+        
         #Set the text in DataTime to the 'cleaned' argument
         self.DataTime.blockSignals(True)
         self.DataTime.setText(arg)
@@ -802,17 +822,22 @@ class tabdemo(QTabWidget):
     
     def downsample(self, xstart, xend):
         max_points = self.plotFixedWidth.value()
-        origXData = np.asarray(self.xAll)
-        origYData = np.asarray(self.yAll)
-        mask = (origXData > xstart) & (origXData < xend)
-        mask = np.convolve([1,1], mask, mode='same').astype(bool)
-        ratio = max(np.sum(mask) // max_points, 1)
         
-        xdata = origXData[mask]
-        ydata = origYData[mask]
-        
-        xdata = xdata[::ratio]
-        ydata = ydata[::ratio]
+        if(len(self.xAll) > max_points):
+            origXData = np.asarray(self.xAll)
+            origYData = np.asarray(self.yAll)
+            mask = (origXData > xstart) & (origXData < xend)
+            mask = np.convolve([1,1], mask, mode='same').astype(bool)
+            ratio = max(np.sum(mask) // max_points, 1)
+    
+            xdata = origXData[mask]
+            ydata = origYData[mask]
+            
+            xdata = xdata[::ratio]
+            ydata = ydata[::ratio]
+        else:
+            xdata = self.xAll
+            ydata = self.yAll
         
         return xdata, ydata
         
@@ -863,6 +888,9 @@ class tabdemo(QTabWidget):
             self.ButtonStart.setText('Start')
             self.plotStop.setText('Start')
             self.plotZero.setDisabled(True)
+            self.plotWidth.setDisabled(True)
+            self.plotFixedWidth.setDisabled(True)
+            self.RefreshCOM.setDisabled(False)
             self.ButtonStart.setToolTip('Start Recording Data')
             
             self.logMsg('Saving Data...', True, 'black')
@@ -879,9 +907,12 @@ class tabdemo(QTabWidget):
             self.ButtonStart.setText('Stop')
             self.plotStop.setText('Stop')
             self.plotZero.setDisabled(False)
+            self.plotWidth.setDisabled(False)
+            self.plotFixedWidth.setDisabled(False)
+            self.RefreshCOM.setDisabled(True)
             self.ButtonStart.setToolTip('Stop Recording Data')
             
-            self.setCurrentIndex(2)
+            self.setCurrentIndex(1)
             
             self.plot.clear()
             self.x=[]
@@ -1010,7 +1041,7 @@ if __name__ == '__main__':
     offset = '          '
 
     # Create and display the splash screen
-    splash_pix = QPixmap('MaxLogo4.png')
+    splash_pix = QPixmap('DFSplash.png')
 
     splash = QSplashScreen(splash_pix, QtCore.Qt.WindowStaysOnTopHint)
     splash.setMask(splash_pix.mask())
@@ -1038,10 +1069,11 @@ if __name__ == '__main__':
     import os
     splash.showMessage(offset + "Loading Modules: numpy\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     import numpy as np
-    splash.showMessage(offset + "Loading Modules: scipy\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
-    import scipy
+    # splash.showMessage(offset + "Loading Modules: scipy\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
+    # import scipy
 
-    from MaxtecDAQ import MaxtecDAQ
+    from DF_DAQ_HW_Interface import DF_DAQ
+
     #Start the GUI, (tabdemo)
     form = tabdemo()
     form.show()

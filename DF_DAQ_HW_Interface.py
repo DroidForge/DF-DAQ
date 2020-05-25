@@ -7,10 +7,8 @@ Created on Tue May 02 10:17:41 2017
 
 import serial
 import serial.tools.list_ports as PortList
-import os
-import datetime
 
-class MaxtecDAQ():
+class DF_DAQ():
     def __init__(self):
         print ('Class Initialized')
         self.ADCMult = 0.0078125
@@ -33,7 +31,7 @@ class MaxtecDAQ():
         return self.Port #Return the list of Teensy COM Ports
     
     def __SendCommand(self, Command, ser, data):
-        CommandList = {"Version"    :"V\n",#Firmware Version
+        CommandList = {"Version"    :"v\n",#Firmware Version
                        "DataRate"   :"o" + data + "\n",    #[Command Type][Multiplier][]
                        "Setup"      :"x\n",#Setup Info
                        "Read"       :"r\n",#Read Sensor
@@ -98,8 +96,6 @@ class MaxtecDAQ():
             self.__SendCommand('Version', ser, "")
             print ('Command Sent')
             s = ser.readline().decode()
-            if(s[0] != 'S'): #Teensy did not respond to version command. 
-                s = 'NA'
             print ('Returned: ' + str(s))
             ser.close()
             print ('Serial on Port: ' + COM + ' Closed')
