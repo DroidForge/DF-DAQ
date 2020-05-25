@@ -19,7 +19,7 @@ Red: #800000
 """
 
 #Imports reqired to start the program 
-from PyQt5.QtWidgets import QFrame, QTabWidget
+from PyQt5.QtWidgets import QFrame, QTabWidget, QMessageBox
 from functools import partial
 import pyqtgraph as pg
 
@@ -380,9 +380,9 @@ class tabdemo(QTabWidget):
         self.FileOutput.setToolTip('File path to output file')
         self.FileOutput.setReadOnly(True)
         fileUnique = 1
-        while(os.path.exists("Temp-" + str(fileUnique) + '.xlsx')):
+        while(os.path.exists("Test-" + str(fileUnique) + '.xlsx')):
             fileUnique += 1;
-        self.fileUniqueStr = str(os.getcwd()) + '\Temp-' + str(fileUnique) + '.xlsx'
+        self.fileUniqueStr = str(os.getcwd()) + '\Test-' + str(fileUnique) + '.xlsx'
         self.FileOutput.setText(self.fileUniqueStr)
         
         self.SaveAs = QPushButton()
@@ -910,6 +910,11 @@ class tabdemo(QTabWidget):
             
             self.logMsg('Saving Data...', True, 'black')
             
+            if(os.path.exists(self.fileUniqueStr)):
+                reply = QMessageBox.question(self, 'Overwrite File?', 'File already exists,\ndo you want to overwrite?', buttons=QMessageBox.No|QMessageBox.Yes, defaultButton=QMessageBox.No)
+                if reply == QMessageBox.No:
+                    self.SaveExcelAs(self.fileUniqueStr)
+            
             if(self.SaveData(self.fileUniqueStr)):
                 self.logMsg(self.FileOutput.text(), False, 'black')
                 self.logMsg('...Data Saved!', True, '#00aa00')
@@ -1035,11 +1040,24 @@ class tabdemo(QTabWidget):
             return True
         except:
             print ("ERROR - Could not save Excel File!")
-            RecoveryPath = str(os.getcwd()) + 'Recovery-' + str(datetime.datetime.now().strftime('%H%M%S'))
+            RecoveryPath = str(os.getcwd()) + '\Recovery-' + str(datetime.datetime.now().strftime('%H%M%S') + '.xlsx')
             self.df.to_excel(RecoveryPath)
             print ("File Recovery avaliable at: " + RecoveryPath)
             return False
-        
+    
+    def closeEvent(self, event):
+        if self.Start:
+            quit_msg = 'Are you sure you want to exit the program?'
+            reply = QMessageBox.question(self, 'Message', quit_msg, QMessageBox.Yes, QMessageBox.No)
+            
+            if reply == QMessageBox.Yes:
+                self.ToggleStartStop()
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            event.accept()
+
 #==============================================================================
 # Input Parameters: none
 # Output Returns: none
