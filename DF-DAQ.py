@@ -464,6 +464,9 @@ class tabdemo(QTabWidget):
         self.xAll = self.x
         self.yAll = self.y
         
+        self.testTimer = QtCore.QTimer()
+        self.testTimer.timeout.connect(self.ToggleStartStop)
+        
         self.timer = QtCore.QTimer()
         self.timer.setInterval(50)
         self.timer.timeout.connect(self.update_plot_data)
@@ -893,6 +896,7 @@ class tabdemo(QTabWidget):
         if(not(self.Start)):
             print ('Stop Test')
             self.timer.stop()
+            self.testTimer.stop()
             self.DAQ.Abort = True
             self.DAQ.CloseCOM(str(self.COMDis.currentText()))
             
@@ -938,6 +942,11 @@ class tabdemo(QTabWidget):
             self.x=[]
             self.y=[]
             self.data_line = self.plot.plot(self.x, self.y, pen=self.pen)
+            
+            if(self.DataTime.displayText() != '-'):
+                testTime = int(float(self.DataTime.displayText())*1000)
+                self.testTimer.start(testTime)
+                print('Starting test for: '+str(testTime)+' mSec')
             
             self.timer.start()
             COMPort = str(self.COMDis.currentText())
