@@ -346,8 +346,8 @@ class tabdemo(QTabWidget):
 #        h10layout.addWidget(self.SetRateButton)
         
         #Customize Data - Grid Layout
-        glayout2.addWidget(QLabel('Prefix'), 1, 3)
-        glayout2.addWidget(self.DataPrefix , 1, 5)
+        # glayout2.addWidget(QLabel('Prefix'), 1, 3)
+        # glayout2.addWidget(self.DataPrefix , 1, 5)
         glayout2.addWidget(QLabel('Output'), 3, 3)
         glayout2.addWidget(self.DataOutput, 3, 5)
         glayout2.addWidget(QLabel('Multiplier'), 5, 3)
