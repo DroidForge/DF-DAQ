@@ -373,8 +373,9 @@ class tabdemo(QTabWidget):
         #Right Column
         v3layout.addWidget(HardwareFrame)
         
+        maxFileOptionsWidth = 600
         self.FileOutput = QLineEdit()
-        self.FileOutput.setMaximumWidth(315)
+        self.FileOutput.setMaximumWidth(maxFileOptionsWidth)
         self.FileOutput.setMaximumHeight(22)
         self.FileOutput.setToolTip('File path to output file')
         self.FileOutput.setReadOnly(True)
@@ -385,8 +386,8 @@ class tabdemo(QTabWidget):
         self.FileOutput.setText(self.fileUniqueStr)
         
         self.SaveAs = QPushButton()
-        self.SaveAs.setText('Save As')
-        self.SaveAs.setMaximumWidth(50)
+        self.SaveAs.setText('Set Save Filename')
+        self.SaveAs.setMaximumWidth(100)
         self.SaveAs.setToolTip('Chose where to automatically save recorded data')
         self.SaveAs.clicked.connect(partial(self.SaveExcelAs, self.fileUniqueStr))
         
@@ -403,7 +404,7 @@ class tabdemo(QTabWidget):
         FileOptionsFrame = QGroupBox()
         FileOptionsFrame.setTitle('File Options')
         FileOptionsFrame.setLayout(h6layout)
-        FileOptionsFrame.setMaximumWidth(315)
+        FileOptionsFrame.setMaximumWidth(maxFileOptionsWidth)
         #Left Size Vertical Layout
         vlayout.addWidget(QHLine())
         vlayout.addLayout(h2layout)
@@ -1024,17 +1025,20 @@ class tabdemo(QTabWidget):
     
     def SaveData(self, fname):
         print ("Saving to Excel")
-        return 1
-        # try:
-        #     self.df.to_excel(str(fname))
-        #     print ("File Saved!")
-        #     return True
-        # except:
-        #     print ("ERROR - Could not save Excel File!")
-        #     RecoveryPath = str(os.getcwd()) + 'Recovery-' + str(datetime.datetime.now().strftime('%H%M%S'))
-        #     self.df.to_excel(RecoveryPath)
-        #     print ("File Recovery avaliable at: " + RecoveryPath)
-        #     return False
+        timeIndex = [x/float(self.DataRate.displayText()) for x in self.xAll]
+        pressureHeading = 'Pressure ('+self.DataOutput.currentText()+')'
+        data = {'Time (sec)':timeIndex, pressureHeading:self.yAll}
+        self.df = pd.DataFrame(data=data)
+        try:
+            self.df.to_excel(str(fname))
+            print ("File Saved!")
+            return True
+        except:
+            print ("ERROR - Could not save Excel File!")
+            RecoveryPath = str(os.getcwd()) + 'Recovery-' + str(datetime.datetime.now().strftime('%H%M%S'))
+            self.df.to_excel(RecoveryPath)
+            print ("File Recovery avaliable at: " + RecoveryPath)
+            return False
         
 #==============================================================================
 # Input Parameters: none

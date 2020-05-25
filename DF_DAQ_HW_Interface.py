@@ -32,7 +32,7 @@ class DF_DAQ():
     
     def __SendCommand(self, Command, ser, data):
         CommandList = {"Version"    :"v\n",#Firmware Version
-                       "DataRate"   :"o" + data + "\n",    #[Command Type][Multiplier][]
+                       "DataRate"   :"o" + data + "\n",    #[Command Type][Sample Period][]
                        "Setup"      :"x\n",#Setup Info
                        "Read"       :"r\n",#Read Sensor
                        "Zero"       :"z\n" #Zero Sensor Reading
