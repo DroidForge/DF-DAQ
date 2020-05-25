@@ -802,6 +802,7 @@ class tabdemo(QTabWidget):
             print ('Ensure desired data is on sheet 1 of the file')
             self.dfData = None 
             self.pPlot.setDisabled(True)
+
 #==============================================================================
 # Input Parameters: none
 # Output Returns: none
@@ -811,7 +812,13 @@ class tabdemo(QTabWidget):
     def RefreshCOMs(self):
         self.logMsg('Refresh COM Ports<br>', False, 'black')
         self.SearchCOMs()
-        
+
+#==============================================================================
+# Input Parameters: none
+# Output Returns: none
+#
+# Description: updates the plot fixed width if in fixed width mode
+#==============================================================================
     def plotUpdateData(self):
         if(self.plotWidth.currentIndex() != 0):
             self.plotFixedWidth.show()
@@ -819,7 +826,13 @@ class tabdemo(QTabWidget):
             self.y = self.yAll[(len(self.yAll) - self.plotFixedWidth.value()):]
         else:
             self.plotFixedWidth.hide()
-    
+
+#==============================================================================
+# Input Parameters: none
+# Output Returns: none
+#
+# Description: downsamples the data for the plot
+#==============================================================================
     def downsample(self, xstart, xend):
         max_points = self.plotFixedWidth.value()
         
@@ -883,9 +896,8 @@ class tabdemo(QTabWidget):
             self.plot.clear()
             self.data_line = self.plot.plot(self.xLive, self.yLive, pen=self.penGray)
             self.setCurrentIndex(0)
+            self.tab1.setDisabled(False)
             
-            #Reset the start button
-            self.ButtonStart.setText('Start')
             self.plotStop.setText('Start')
             self.plotZero.setDisabled(True)
             self.plotWidth.setDisabled(True)
@@ -904,12 +916,12 @@ class tabdemo(QTabWidget):
             
         else:
             print ('Starting Test')
-            self.ButtonStart.setText('Stop')
             self.plotStop.setText('Stop')
             self.plotZero.setDisabled(False)
             self.plotWidth.setDisabled(False)
             self.plotFixedWidth.setDisabled(False)
             self.RefreshCOM.setDisabled(True)
+            self.tab1.setDisabled(True)
             self.ButtonStart.setToolTip('Stop Recording Data')
             
             self.setCurrentIndex(1)
