@@ -19,7 +19,7 @@ Red: #800000
 """
 
 #Imports reqired to start the program 
-from PyQt5.QtWidgets import QFrame, QTabWidget, QMessageBox
+from PyQt5.QtWidgets import QFrame, QTabWidget
 from functools import partial
 import pyqtgraph as pg
 
@@ -84,6 +84,7 @@ class tabdemo(QTabWidget):
         self.tab4UI()
 
         self.DAQ = DF_DAQ()                      #Create a DF_DAQ object
+        self.threadpool = QThreadPool()
  
         self.logMsg('Date: ' + datetime.datetime.now().strftime('%m-%d-%y'), False, 'black')    #Write the Start Date to the Log
         self.logMsg('Software: ' + self.AppName, False, 'black')                                #Write the Software Version to the Log
@@ -149,8 +150,7 @@ class tabdemo(QTabWidget):
 #
 # Description: This function sets all the Hardware information with for the 
 # selected COM Port.
-#==============================================================================                
-               
+#==============================================================================
     def disableGUI(self, disabled):
         self.DataPrefix.setDisabled(disabled)
         self.DataRate.setDisabled(disabled)
@@ -419,7 +419,13 @@ class tabdemo(QTabWidget):
         #Set the Tab Layout
         self.tab1.setLayout(hlayout)
 
-    def update_plot_data(self):
+    def update_plot_data(self, serialData):
+        print('got serialdata: '+serialData)
+        try:
+            data = float(serialData)
+        except ValueError:
+            print('serial data not float, skipping this read')
+            return
         if(len(self.x) == 0):
             self.x = [0]
             self.xAll = []
@@ -434,7 +440,7 @@ class tabdemo(QTabWidget):
         
         self.xAll.append(self.x[-1])
         
-        self.y.append(self.DAQ.Read(str(self.COMDis.currentText())) * self.dataOutputMultiplier)
+        self.y.append(data * self.dataOutputMultiplier)
         self.yAll.append(self.y[-1])
     
         if(self.plotWidth.currentIndex() != 0):
@@ -680,7 +686,7 @@ class tabdemo(QTabWidget):
 # and will auto update the firmware rate
 #==============================================================================
     def SetRate(self):
-        rate = self.DataRate.text()        
+        rate = self.DataRate.text()
         
         if float(rate) > self.rateMax: 
             rate = str(self.rateMax)
@@ -690,7 +696,7 @@ class tabdemo(QTabWidget):
         newRate = int(1000 / float(self.DataRate.text()))
 
         if(newRate != self.oldRate):
-            self.timer.setInterval(newRate)
+            self.DAQ.setSamplingPeriod(newRate, str(self.COMDis.currentText()))
             self.logMsg('<b>Sample Time: ' + str(newRate) + 'ms</b>', False, 'blue')
             self.oldRate = newRate
 
@@ -895,10 +901,10 @@ class tabdemo(QTabWidget):
         self.Start = not(self.Start)
         if(not(self.Start)):
             print ('Stop Test')
-            self.timer.stop()
             self.testTimer.stop()
             self.DAQ.Abort = True
-            self.DAQ.CloseCOM(str(self.COMDis.currentText()))
+            self.threadpool.waitForDone(100) # wait up to 100mSec for the reading thread to exit before trying to close the COM port
+            self.DAQ.CloseCOM()
             
             self.plot.clear()
             self.data_line = self.plot.plot(self.xLive, self.yLive, pen=self.penGray)
@@ -928,6 +934,7 @@ class tabdemo(QTabWidget):
             
         else:
             print ('Starting Test')
+            # update gui
             self.plotStop.setText('Stop')
             self.plotZero.setDisabled(False)
             self.plotWidth.setDisabled(False)
@@ -936,99 +943,26 @@ class tabdemo(QTabWidget):
             self.tab1.setDisabled(True)
             self.ButtonStart.setToolTip('Stop Recording Data')
             
+            # jump to live data plot tab
             self.setCurrentIndex(1)
             
+            # clear the plot and setup for new data
             self.plot.clear()
             self.x=[]
             self.y=[]
             self.data_line = self.plot.plot(self.x, self.y, pen=self.pen)
+
+            COMPort = str(self.COMDis.currentText())
+            daqWorker = Worker(partial(self.DAQ.readDataUntilStop, COM=COMPort))
+            daqWorker.signals.serialData.connect(self.update_plot_data)
+            daqWorker.signals.finished.connect(self.DAQ.CloseCOM)
+            self.threadpool.start(daqWorker)
             
             if(self.DataTime.displayText() != '-'):
                 testTime = int(float(self.DataTime.displayText())*1000)
                 self.testTimer.start(testTime)
                 print('Starting test for: '+str(testTime)+' mSec')
-            
-            self.timer.start()
-            COMPort = str(self.COMDis.currentText())
             print (COMPort)
-            # if(COMPort != 'NA'):            
-            #     if(self.FirmDis.text() != 'NA'):
-            #         self.logMsg('--DAQ Settings--<br><br>', True, '#900090')
-            #         self.logMsg('Hardware Detected: ' + COMPort, False, 'black')
-                    
-            #         #Set the ADC Multiplier
-            #         self.DAQ.SetTemp('NA') #Set the Temp variable in the MaxtecDAQ Class to NA
-            #         if(self.DataMultiplier.text() == ''):   #Make sure there is a multiplier value
-            #             self.DataMultiplier.setText('1')    #Default to 1
-                        
-            #         if(self.DataOutput.currentText() == 'Temp 700'):  #Check if the output is a Temperature
-            #             self.DAQ.SetTemp('Temp700') #Set the Temp variable in the MaxtecDAQ Class to convert the final results 
-                        
-            #         elif(self.DataOutput.currentText() == 'Temp 800'):  #Check if the output is a Temperature
-            #             self.DAQ.SetTemp('Temp800') #Set the Temp variable in the MaxtecDAQ Class to convert the final results                     
-    
-            #         self.DAQ.ADCMult = float(self.DataMultiplier.text())
-            #         print ('ADCMult set to: ' + str(self.DataMultiplier.text()))
-            #         self.logMsg('Multiplier: ' + str(self.DAQ.ADCMult), False, 'black')
-                    
-            #         #Set the Recording Time
-            #         Time = self.DataTime.text()
-            #         self.logMsg('Record Time: ' + Time + ' Sec', False, 'black')
-                    
-            #         #Set the Sample Rate
-            #         SampRate = float(self.DataRate.text())
-            #         self.logMsg('Sample Rate: ' + str(SampRate) + ' Samp/Sec', False, 'black')         
-                    
-            #         #Set the number of Samples
-            #         SampNum = int(int(Time) * SampRate)
-            #         self.logMsg('Number of Samples: ' + str(SampNum) + ' Samp', False, 'black')
-                    
-            #         Prefix = self.DataPrefix.text()
-            #         self.logMsg('Header Names: ' + Prefix + 'xx', False, 'black')
-            #         self.logMsg('Channels: ' + str(self.HardChannels.text()), False, 'black')
-                    
-            #         #Get Firmware Version
-            #         FirmVer = self.DAQ.getFirmVer(COMPort)
-            #         if(FirmVer != 'NA'):
-            #             self.logMsg('Firmware: ' + str(FirmVer), False, 'black')
-            #             self.FirmDis.setText(FirmVer)
-            #         else:
-            #             self.logMsg('ERROR! - Could not get Firmware from Teensy', True, 'red')
-            #             self.FirmDis.setText('NA')
-            #         List = []
-            #         for i in range(0, int(self.HardChannels.text())):
-            #             if(i < 9):
-            #                 List.append(str(Prefix + '0' + str(i + 1)))
-            #             else:
-            #                 List.append(str(Prefix + str(i + 1)))
-            #         print (List)          
-
-            #         #Start Recording Data
-            #         self.logMsg('Data Recording Started...', True, '#0000ff')                
-            #         self.DAQ.ReadStart(List, SampNum, COMPort, SampRate)
-            #         self.logMsg('...Data Recording Stopped', True, '#0000ff')
-            #         self.logMsg('Saving Data...', True, '#00aa00')                
-            #         if(self.DAQ.SaveData(self.fileUniqueStr)):
-            #             self.logMsg(self.FileOutput.text(), False, 'black')
-            #             self.logMsg('...Data Saved!', True, '#00aa00')
-            #         else:
-            #             self.logMsg('...Data Could Not be Saved', True, 'red')
-            #             self.logMsg('Check Recovery Files', True, 'red')
-
-            #     else:
-            #         self.DAQ.ReadStreamStart(COMPort)                      
-            #         with open(self.FileOutput.text(), "w") as text_files:
-            #             text_files.write(self.Log.toPlainText())
-            #         self.logMsg('Data Saved', True, '#00aa00')
-            #     #Reset the start latch
-            #     self.Start = not(self.Start)
-                
-            #     #Reset the start button
-            #     self.ButtonStart.setText('Start')
-            #     self.ButtonStart.setToolTip('Start Recording Data')
-
-            # else: # COM Port not found
-            #     self.logMsg('ERROR! - Teensy COM Port NOT Found', True, 'red')
     
     def zeroSensor(self):
         self.logMsg('Zeroing Sensor Output', False, 'blue')
@@ -1039,7 +973,7 @@ class tabdemo(QTabWidget):
     
     def SaveData(self, fname):
         print ("Saving to Excel")
-        timeIndex = [x/float(self.DataRate.displayText()) for x in self.xAll]
+        timeIndex = [x*self.oldRate/1000 for x in self.xAll]
         pressureHeading = 'Pressure ('+self.DataOutput.currentText()+')'
         data = {'Time (sec)':timeIndex, pressureHeading:self.yAll}
         self.df = pd.DataFrame(data=data)
@@ -1106,8 +1040,9 @@ if __name__ == '__main__':
     splash.showMessage(offset + "Loading Modules: datetime\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     import datetime
     splash.showMessage(offset + "Loading Modules: pyqt5.widgets\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
-    from PyQt5.QtWidgets import QWidget, QLineEdit, QHBoxLayout, QLabel, QVBoxLayout, QPushButton, QTextEdit, QGridLayout, QFileDialog, QApplication, QComboBox, QRadioButton, QGroupBox, QSizePolicy, QSpacerItem, QSpinBox
+    from PyQt5.QtWidgets import QWidget, QLineEdit, QHBoxLayout, QLabel, QVBoxLayout, QPushButton, QTextEdit, QGridLayout, QFileDialog, QApplication, QComboBox, QRadioButton, QGroupBox, QSizePolicy, QSpacerItem, QSpinBox, QMessageBox
     from PyQt5.QtGui import QIcon, QTextCursor, QFont
+    from PyQt5.QtCore import QThreadPool
     splash.showMessage(offset + "Loading Modules: bokeh.plotting\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     from bokeh.plotting import figure, show
     splash.showMessage(offset + "Loading Modules: os\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
@@ -1117,7 +1052,7 @@ if __name__ == '__main__':
     # splash.showMessage(offset + "Loading Modules: scipy\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     # import scipy
 
-    from DF_DAQ_HW_Interface import DF_DAQ
+    from DF_DAQ_HW_Interface import DF_DAQ, Worker
 
     #Start the GUI, (tabdemo)
     form = tabdemo()

@@ -48,7 +48,7 @@
 #define PSI_MAX 1
 Adafruit_MPRLS mpr = Adafruit_MPRLS(RESET_PIN, EOC_PIN, PSI_MIN, PSI_MAX, TRANSFER_FUNCTION_C);
 
-#define DEFAULT_SAMPLE_PERIOD 500
+#define DEFAULT_SAMPLE_PERIOD 100
 
 bool running = false;
 unsigned long start_time;
@@ -99,9 +99,7 @@ void loop() {
       if(DEBUG){
         Serial.println("Pressure: " + String(pressure_psi, 5));
       }else{
-        Serial.print(pressure_psi, 4);
-        Serial.print(",");
-        Serial.println((char)13);
+        Serial.println(pressure_psi, 4);
       }
     }
   }
