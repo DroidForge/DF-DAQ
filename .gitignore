@@ -2,6 +2,12 @@
 #environments
 venv/
 
+#build folder / binaries
+bin/
+
 #compiled python files
 *.pyc
 __pycache__/
+
+#sublime text
+*.sublime-workspace
