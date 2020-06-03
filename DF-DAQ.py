@@ -114,8 +114,8 @@ class tabdemo(QTabWidget):
             self.FirmDis.setText('NA')          #Set the Firmware LineEdit to NA
             self.DataOutput.setCurrentIndex(0)  #Set the Output ComboBox to the first index
             self.HardChannels.setText('NA')     #Set the Channels LineEdit to NA
+            self.rateMax = 10
             self.DataRate.setText('10')          #Set the Rate LineEdit to 0
-            self.rateMax = 10    
             self.disableGUI(True)
             self.updateMult()                   #Update the Multiplier LineEdit
             self.logMsg('Please plug in the DroidForge hardware and refresh the COM', True, 'blue')
@@ -134,6 +134,7 @@ class tabdemo(QTabWidget):
             if (self.FirmDis.text() == 'NA'):
                 print('No Firmware Detected')
                 self.disableGUI(True)
+                self.rateMax = 10
                 self.DataRate.setText('10')
                 self.DataPrefix.setText("")
                 self.removeTab(1)
@@ -162,7 +163,7 @@ class tabdemo(QTabWidget):
     
     def updateHardware(self):
         print('Updating Hardware')
-        if(self.COMDis.currentText() != 'NA'): #Do nothing if there is no DF Hardware Detected
+        if('COM' in self.COMDis.currentText()): #Do nothing if there is no DF Hardware Detected
             self.logMsg('Searching for Attached Hardware...<br>', False, 'black')
             self.FirmDis.setText(self.DAQ.getFirmVer(str(self.COMDis.currentText())))      #Use the DF_DAQ 'getFirmVer' method to get the current firmware form the selected Teensy
             FirmStartup = self.DAQ.getSetup(str(self.COMDis.currentText())).split('-')
@@ -183,8 +184,8 @@ class tabdemo(QTabWidget):
                 
             else: #Other Firmware Detected
                 self.HardChannels.setText('NA') #Set the Channesl LineEdit to NA
-                self.DataRate.setText('10')      #Set the Rate LineEdit to 0
                 self.rateMax = 10
+                self.DataRate.setText('10')      #Set the Rate LineEdit to 0
                 
             self.HardChannels.setText(FirmStartup[2])
             self.rateMax = float(FirmStartup[3])
@@ -331,7 +332,7 @@ class tabdemo(QTabWidget):
         self.DataRate = QLineEdit()
         self.DataRate.setMaximumWidth(55)
         self.DataRate.setToolTip('Sets the rate of the firmware in Samples/Second')
-        self.DataRate.setText('10')
+        self.DataRate.setText('-')
         self.DataRate.textChanged.connect(self.SetRate)
         
         #Add a label to the Test Time Grid Point
@@ -387,14 +388,14 @@ class tabdemo(QTabWidget):
         
         self.SaveAs = QPushButton()
         self.SaveAs.setText('Set Save Filename')
-        self.SaveAs.setMaximumWidth(100)
+        self.SaveAs.setMaximumWidth(160)
         self.SaveAs.setToolTip('Chose where to automatically save recorded data')
         self.SaveAs.clicked.connect(partial(self.SaveExcelAs, self.fileUniqueStr))
         
         #Left Side of the screen
         h2layout.addLayout(v2layout)
         h2layout.addLayout(v3layout)
-        h2layout.addStretch(1)        
+        h2layout.addStretch(1)
         
         #File Options Widgets
         h6layout.addWidget(QLabel('Output:'))
@@ -688,6 +689,15 @@ class tabdemo(QTabWidget):
     def SetRate(self):
         rate = self.DataRate.text()
         
+        if(float(rate) == 0):
+            self.ButtonStart.setDisabled(True)
+            self.plotStop.setDisabled(True)
+            self.logMsg('Error - Rate cannot be 0!', True, 'red')
+            return
+        else:
+            self.ButtonStart.setDisabled(False)
+            self.plotStop.setDisabled(False)
+        
         if float(rate) > self.rateMax: 
             rate = str(self.rateMax)
             self.DataRate.setText(rate)
@@ -974,6 +984,7 @@ class tabdemo(QTabWidget):
     def SaveData(self, fname):
         print ("Saving to Excel")
         timeIndex = [x*self.oldRate/1000 for x in self.xAll]
+        print(self.xAll)
         pressureHeading = 'Pressure ('+self.DataOutput.currentText()+')'
         data = {'Time (sec)':timeIndex, pressureHeading:self.yAll}
         self.df = pd.DataFrame(data=data)
@@ -1026,28 +1037,28 @@ if __name__ == '__main__':
     splash.setMask(splash_pix.mask())
 
     #Message on splash screen
-    splash.showMessage(offset + "Loading Modules:\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
+    splash.showMessage(offset + "Loading Modules:", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
 
     #Show the splash screen
     splash.show()
     app.processEvents()
 	
     #Import modules
-    splash.showMessage(offset + "Loading Modules: sys\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
+    splash.showMessage(offset + "Loading Modules: sys", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     import sys
-    splash.showMessage(offset + "Loading Modules: pandas\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
+    splash.showMessage(offset + "Loading Modules: pandas", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     import pandas as pd
-    splash.showMessage(offset + "Loading Modules: datetime\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
+    splash.showMessage(offset + "Loading Modules: datetime", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     import datetime
-    splash.showMessage(offset + "Loading Modules: pyqt5.widgets\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
+    splash.showMessage(offset + "Loading Modules: pyqt5.widgets", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     from PyQt5.QtWidgets import QWidget, QLineEdit, QHBoxLayout, QLabel, QVBoxLayout, QPushButton, QTextEdit, QGridLayout, QFileDialog, QApplication, QComboBox, QRadioButton, QGroupBox, QSizePolicy, QSpacerItem, QSpinBox, QMessageBox
     from PyQt5.QtGui import QIcon, QTextCursor, QFont
     from PyQt5.QtCore import QThreadPool
-    splash.showMessage(offset + "Loading Modules: bokeh.plotting\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
+    splash.showMessage(offset + "Loading Modules: bokeh.plotting", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     from bokeh.plotting import figure, show
-    splash.showMessage(offset + "Loading Modules: os\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
+    splash.showMessage(offset + "Loading Modules: os", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     import os
-    splash.showMessage(offset + "Loading Modules: numpy\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
+    splash.showMessage(offset + "Loading Modules: numpy", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     import numpy as np
     # splash.showMessage(offset + "Loading Modules: scipy\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     # import scipy
