@@ -230,6 +230,7 @@ class tabdemo(QTabWidget):
         h8layout = QHBoxLayout()
         h9layout = QHBoxLayout()
         h10layout = QHBoxLayout()
+        h11layout = QHBoxLayout()
         glayout = QGridLayout()
         glayout2 = QGridLayout()
         vlayout = QVBoxLayout()
@@ -281,6 +282,13 @@ class tabdemo(QTabWidget):
         self.ButtonStart.clicked.connect(self.ToggleStartStop)
         self.ButtonStart.setToolTip('Start Recording Data')
         self.Start = False  #Start boolean. (toggles when the Start Button is pressed)
+        
+        #Zero Button
+        self.ButtonZero = QPushButton()
+        self.ButtonZero.setText('Start')
+        self.ButtonZero.setMaximumWidth(70)
+        self.ButtonZero.clicked.connect(self.zeroSensor)
+        self.ButtonZero.setToolTip('Zero the Sensor')
         
         #Add a refresh button to the COM Port List
         h9layout.addWidget(self.COMDis)
@@ -411,7 +419,9 @@ class tabdemo(QTabWidget):
         vlayout.addLayout(h2layout)
         vlayout.addWidget(FileOptionsFrame)
         vlayout.addStretch(1)
-        vlayout.addWidget(self.ButtonStart)        
+        h11layout.addWidget(self.ButtonZero)
+        h11layout.addWidget(self.ButtonStart) 
+        vlayout.addLayout(h11layout)
         
         #Main Layout
         hlayout.addLayout(vlayout)
@@ -689,26 +699,27 @@ class tabdemo(QTabWidget):
     def SetRate(self):
         rate = self.DataRate.text()
         
-        if(float(rate) == 0):
-            self.ButtonStart.setDisabled(True)
-            self.plotStop.setDisabled(True)
-            self.logMsg('Error - Rate cannot be 0!', True, 'red')
-            return
-        else:
-            self.ButtonStart.setDisabled(False)
-            self.plotStop.setDisabled(False)
-        
-        if float(rate) > self.rateMax: 
-            rate = str(self.rateMax)
-            self.DataRate.setText(rate)
-            self.logMsg('Warning! - Maximum rate is ' + rate + 'Hz', True, 'orange')
-
-        newRate = int(1000 / float(self.DataRate.text()))
-
-        if(newRate != self.oldRate):
-            self.DAQ.setSamplingPeriod(newRate, str(self.COMDis.currentText()))
-            self.logMsg('<b>Sample Time: ' + str(newRate) + 'ms</b>', False, 'blue')
-            self.oldRate = newRate
+        if(rate != ''):
+            if(float(rate) == 0):
+                self.ButtonStart.setDisabled(True)
+                self.plotStop.setDisabled(True)
+                self.logMsg('Error - Rate cannot be 0!', True, 'red')
+                return
+            else:
+                self.ButtonStart.setDisabled(False)
+                self.plotStop.setDisabled(False)
+            
+            if float(rate) > self.rateMax: 
+                rate = str(self.rateMax)
+                self.DataRate.setText(rate)
+                self.logMsg('Warning! - Maximum rate is ' + rate + 'Hz', True, 'orange')
+    
+            newRate = int(1000 / float(self.DataRate.text()))
+    
+            if(newRate != self.oldRate):
+                self.DAQ.setSamplingPeriod(newRate, str(self.COMDis.currentText()))
+                self.logMsg('<b>Sample Time: ' + str(newRate) + 'ms</b>', False, 'blue')
+                self.oldRate = newRate
 
 #==============================================================================
 # Input Parameters: Argument (string) *Automatically passed in I guess
