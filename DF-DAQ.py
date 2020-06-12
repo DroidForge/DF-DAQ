@@ -699,26 +699,27 @@ class tabdemo(QTabWidget):
     def SetRate(self):
         rate = self.DataRate.text()
         
-        if(float(rate) == 0):
-            self.ButtonStart.setDisabled(True)
-            self.plotStop.setDisabled(True)
-            self.logMsg('Error - Rate cannot be 0!', True, 'red')
-            return
-        else:
-            self.ButtonStart.setDisabled(False)
-            self.plotStop.setDisabled(False)
-        
-        if float(rate) > self.rateMax: 
-            rate = str(self.rateMax)
-            self.DataRate.setText(rate)
-            self.logMsg('Warning! - Maximum rate is ' + rate + 'Hz', True, 'orange')
+        if(rate != ''):
+            if(float(rate) == 0):
+                self.ButtonStart.setDisabled(True)
+                self.plotStop.setDisabled(True)
+                self.logMsg('Error - Rate cannot be 0!', True, 'red')
+                return
+            else:
+                self.ButtonStart.setDisabled(False)
+                self.plotStop.setDisabled(False)
+            
+            if float(rate) > self.rateMax: 
+                rate = str(self.rateMax)
+                self.DataRate.setText(rate)
+                self.logMsg('Warning! - Maximum rate is ' + rate + 'Hz', True, 'orange')
 
-        newRate = int(1000 / float(self.DataRate.text()))
+            newRate = int(1000 / float(self.DataRate.text()))
 
-        if(newRate != self.oldRate):
-            self.DAQ.setSamplingPeriod(newRate, str(self.COMDis.currentText()))
-            self.logMsg('<b>Sample Time: ' + str(newRate) + 'ms</b>', False, 'blue')
-            self.oldRate = newRate
+            if(newRate != self.oldRate):
+                self.DAQ.setSamplingPeriod(newRate, str(self.COMDis.currentText()))
+                self.logMsg('<b>Sample Time: ' + str(newRate) + 'ms</b>', False, 'blue')
+                self.oldRate = newRate
 
 #==============================================================================
 # Input Parameters: Argument (string) *Automatically passed in I guess
