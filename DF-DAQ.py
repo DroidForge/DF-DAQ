@@ -1004,7 +1004,7 @@ class tabdemo(QTabWidget):
             return True
         except:
             print ("ERROR - Could not save Excel File!")
-            RecoveryPath = str(os.getcwd()) + '\Recovery-' + str(datetime.datetime.now().strftime('%H%M%S') + '.xlsx')
+            RecoveryPath = str(os.environ['USERPROFILE']) + '\Desktop\Recovery-' + str(datetime.datetime.now().strftime('%H%M%S') + '.xlsx')
             self.df.to_excel(RecoveryPath)
             print ("File Recovery avaliable at: " + RecoveryPath)
             return False
