@@ -1,4 +1,8 @@
 
+
+#saved data files
+*.xlsx
+
 #environments
 venv/
 

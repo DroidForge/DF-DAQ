@@ -57,7 +57,7 @@ class tabdemo(QTabWidget):
     def __init__(self, parent = None):
         super(tabdemo, self).__init__(parent)
 
-        CurrentSoftwareVersion = '1.0.0'                        #Update as needed. Don't forget to update the Revision History as well
+        CurrentSoftwareVersion = '1.0.2'                        #Update as needed. Don't forget to update the Revision History as well
         
         self.AppName = "DF-DAQ - " + CurrentSoftwareVersion    #Sets the name in the upper left hand corner of the GUI
 
@@ -391,7 +391,7 @@ class tabdemo(QTabWidget):
         fileUnique = 1
         while(os.path.exists("Test-" + str(fileUnique) + '.xlsx')):
             fileUnique += 1;
-        self.fileUniqueStr = str(os.getcwd()) + '\Test-' + str(fileUnique) + '.xlsx'
+        self.fileUniqueStr = str(os.environ['USERPROFILE']) + '\Desktop\Test-' + str(fileUnique) + '.xlsx'
         self.FileOutput.setText(self.fileUniqueStr)
         
         self.SaveAs = QPushButton()
@@ -699,27 +699,26 @@ class tabdemo(QTabWidget):
     def SetRate(self):
         rate = self.DataRate.text()
         
-        if(rate != ''):
-            if(float(rate) == 0):
-                self.ButtonStart.setDisabled(True)
-                self.plotStop.setDisabled(True)
-                self.logMsg('Error - Rate cannot be 0!', True, 'red')
-                return
-            else:
-                self.ButtonStart.setDisabled(False)
-                self.plotStop.setDisabled(False)
-            
-            if float(rate) > self.rateMax: 
-                rate = str(self.rateMax)
-                self.DataRate.setText(rate)
-                self.logMsg('Warning! - Maximum rate is ' + rate + 'Hz', True, 'orange')
-    
-            newRate = int(1000 / float(self.DataRate.text()))
-    
-            if(newRate != self.oldRate):
-                self.DAQ.setSamplingPeriod(newRate, str(self.COMDis.currentText()))
-                self.logMsg('<b>Sample Time: ' + str(newRate) + 'ms</b>', False, 'blue')
-                self.oldRate = newRate
+        if(float(rate) == 0):
+            self.ButtonStart.setDisabled(True)
+            self.plotStop.setDisabled(True)
+            self.logMsg('Error - Rate cannot be 0!', True, 'red')
+            return
+        else:
+            self.ButtonStart.setDisabled(False)
+            self.plotStop.setDisabled(False)
+        
+        if float(rate) > self.rateMax: 
+            rate = str(self.rateMax)
+            self.DataRate.setText(rate)
+            self.logMsg('Warning! - Maximum rate is ' + rate + 'Hz', True, 'orange')
+
+        newRate = int(1000 / float(self.DataRate.text()))
+
+        if(newRate != self.oldRate):
+            self.DAQ.setSamplingPeriod(newRate, str(self.COMDis.currentText()))
+            self.logMsg('<b>Sample Time: ' + str(newRate) + 'ms</b>', False, 'blue')
+            self.oldRate = newRate
 
 #==============================================================================
 # Input Parameters: Argument (string) *Automatically passed in I guess
