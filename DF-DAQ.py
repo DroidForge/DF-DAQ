@@ -284,11 +284,11 @@ class tabdemo(QTabWidget):
         self.Start = False  #Start boolean. (toggles when the Start Button is pressed)
         
         #Zero Button
-        self.ButtonZero = QPushButton()
-        self.ButtonZero.setText('Start')
-        self.ButtonZero.setMaximumWidth(70)
-        self.ButtonZero.clicked.connect(self.zeroSensor)
-        self.ButtonZero.setToolTip('Zero the Sensor')
+        # self.ButtonZero = QPushButton()
+        # self.ButtonZero.setText('Start')
+        # self.ButtonZero.setMaximumWidth(70)
+        # self.ButtonZero.clicked.connect(self.zeroSensor)
+        # self.ButtonZero.setToolTip('Zero the Sensor')
         
         #Add a refresh button to the COM Port List
         h9layout.addWidget(self.COMDis)
@@ -419,7 +419,7 @@ class tabdemo(QTabWidget):
         vlayout.addLayout(h2layout)
         vlayout.addWidget(FileOptionsFrame)
         vlayout.addStretch(1)
-        h11layout.addWidget(self.ButtonZero)
+        # h11layout.addWidget(self.ButtonZero)
         h11layout.addWidget(self.ButtonStart) 
         vlayout.addLayout(h11layout)
         
