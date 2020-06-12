@@ -286,6 +286,7 @@ class DF_DAQ():
     
     def CloseCOM(self):
         self._ser.close()
+        self._reading = 0
         self._comOpen = False
         
         self.reading = 0
