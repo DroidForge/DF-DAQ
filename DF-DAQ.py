@@ -57,7 +57,7 @@ class tabdemo(QTabWidget):
     def __init__(self, parent = None):
         super(tabdemo, self).__init__(parent)
 
-        CurrentSoftwareVersion = '1.0.2'                        #Update as needed. Don't forget to update the Revision History as well
+        CurrentSoftwareVersion = '1.0.3'                        #Update as needed. Don't forget to update the Revision History as well
         
         self.AppName = "DF-DAQ - " + CurrentSoftwareVersion    #Sets the name in the upper left hand corner of the GUI
 
@@ -67,6 +67,7 @@ class tabdemo(QTabWidget):
         self.oldRate = 0
         self.dataOutputMultiplier = 1
         self.outputType = ''
+        self.hardwareType = 'DEFAULT'
 
         self.tab1 = QWidget()                       #Define Tab1
         self.tab2 = QWidget()                       #Define Tab2
@@ -96,6 +97,10 @@ class tabdemo(QTabWidget):
         self.setMinimumHeight(350)                #Locks the height to 300 (px)
         self.setMinimumWidth(610)               #Locks the minimum width to 600 (px)
         
+    def myExitHandler(self):
+        self.DAQ.COMDisconnect() #disconnect the COM port
+        print("Closing Application - Disconnecting COM Port")
+
 #==============================================================================
 # Input Parameters: none
 # Output Returns: none 
@@ -165,13 +170,16 @@ class tabdemo(QTabWidget):
         print('Updating Hardware')
         if('COM' in self.COMDis.currentText()): #Do nothing if there is no DF Hardware Detected
             self.logMsg('Searching for Attached Hardware...<br>', False, 'black')
-            self.FirmDis.setText(self.DAQ.getFirmVer(str(self.COMDis.currentText())))      #Use the DF_DAQ 'getFirmVer' method to get the current firmware form the selected Teensy
-            FirmStartup = self.DAQ.getSetup(str(self.COMDis.currentText())).split('-')
+            self.DAQ.COMDisconnect()
+            self.DAQ.COMConnect(str(self.COMDis.currentText()))
+            self.FirmDis.setText(self.DAQ.getFirmVer())      #Use the DF_DAQ 'getFirmVer' method to get the current firmware form the selected Teensy
+            FirmStartup = self.DAQ.getSetup().split('-')
             
             self.logMsg('DF Board: ' + str(self.COMDis.currentText()), False, 'black')   #Write the Teensy COM Port to the Log
             self.logMsg('Firmware: ' + self.FirmDis.text(), False, 'black') #Write the Firmware Version to the Log
             
             if(FirmStartup[0] == 'P'):
+                self.hardwareType = 'DEFAULT'
                 self.DataOutput.clear()
                 self.outputType = 'Pressure'
                 for key in self.pressureOptions:
@@ -181,16 +189,36 @@ class tabdemo(QTabWidget):
                     self.DataOutput.setCurrentIndex(index)
                 self.logMsg('Hardware Type: Pressure', False, 'black')
                 self.DataTime.setText('-') #Disable rate
-                
+                self.HardChannels.setText(FirmStartup[2])
+                self.rateMax = float(FirmStartup[3])
+                self.logMsg('Max Sample Rate: ' + str(self.rateMax), False, 'black')
+                self.DataRate.setText(str(int(FirmStartup[4])))
+                self.CustomizeDataFrame.show();
+                self.BLEOptions.hide()
+            elif(FirmStartup[0] == 'BLE'):
+                self.hardwareType = 'BLE'
+                self.DataOutput.clear();
+                self.logMsg('Hardware Communication: Bluetooth Low Energy', False, 'black')
+                if(FirmStartup[1] == 'AG'):
+                    self.outputType = 'Accel/Gyro'
+                    self.logMsg('Hardware Type: Accel/Gyro', False, 'black')
+                    self.DataTime.setText('-') #Disable rate
+                    self.CustomizeDataFrame.hide();
+                    self.BLEOptions.show()
+                else:
+                    self.logMsg('Hardware Type: Unknown', False, '#924900')
             else: #Other Firmware Detected
                 self.HardChannels.setText('NA') #Set the Channesl LineEdit to NA
                 self.rateMax = 10
                 self.DataRate.setText('10')      #Set the Rate LineEdit to 0
+                self.HardChannels.setText(FirmStartup[2])
+                self.rateMax = float(FirmStartup[3])
+                self.logMsg('Max Sample Rate: ' + str(self.rateMax), False, 'black')
+                self.DataRate.setText(str(int(FirmStartup[4])))
+                self.CustomizeDataFrame.show();
+                self.BLEOptions.hide()
                 
-            self.HardChannels.setText(FirmStartup[2])
-            self.rateMax = float(FirmStartup[3])
-            self.logMsg('Max Sample Rate: ' + str(self.rateMax), False, 'black')
-            self.DataRate.setText(str(int(FirmStartup[4])))
+            
             
 #==============================================================================
 # Input Parameters: msg (Str), bold (Bool), color (Str)
@@ -233,6 +261,8 @@ class tabdemo(QTabWidget):
         h11layout = QHBoxLayout()
         glayout = QGridLayout()
         glayout2 = QGridLayout()
+        glayout3 = QGridLayout()
+        glayout4 = QGridLayout()
         vlayout = QVBoxLayout()
         v2layout = QVBoxLayout()
         v3layout = QVBoxLayout()
@@ -343,6 +373,54 @@ class tabdemo(QTabWidget):
         self.DataRate.setText('-')
         self.DataRate.textChanged.connect(self.SetRate)
         
+        #Scan
+        self.ButtonScan = QPushButton()
+        self.ButtonScan.setText("Scan")
+        self.ButtonScan.setMaximumWidth(315)
+        self.ButtonScan.clicked.connect(self.ScanBLEDevices)
+        self.ButtonScan.setToolTip('Scan for available BLE Devices')
+        
+        #BLE Device List
+        self.BLEDevice = QComboBox()
+        self.BLEDevice.setMinimumWidth(58)
+        self.BLEDevice.setToolTip('BLE Device')
+        self.BLEDevice.addItem("Select Device")
+        self.BLEDevice.hide()
+        self.BLEDevice.currentIndexChanged.connect(self.updateBLEDevice)
+        
+        #Connect
+        self.ButtonConnect = QPushButton()
+        self.ButtonConnect.setText("Connect")
+        self.ButtonConnect.setMaximumWidth(315)
+        self.ButtonConnect.clicked.connect(self.connectToBLEDevice)
+        self.ButtonConnect.hide()
+        self.ButtonConnect.setDisabled(True)
+        self.ButtonConnect.setToolTip('Connect to the selected BLE Device')
+        
+        #Scan Char
+        self.ButtonCharScan = QPushButton()
+        self.ButtonCharScan.setText("Scan")
+        self.ButtonCharScan.setMaximumWidth(315)
+        self.ButtonCharScan.clicked.connect(self.ScanBLEDeviceChars)
+        self.ButtonCharScan.setToolTip('Scan for characteristics on selected BLE Device')
+        
+        #BLE Char List
+        self.BLEDeviceChar = QComboBox()
+        self.BLEDeviceChar.setMinimumWidth(58)
+        self.BLEDeviceChar.setToolTip('BLE Characteristic')
+        self.BLEDeviceChar.addItem("Select Characteristic")
+        self.BLEDeviceChar.setDisabled(True)
+        self.BLEDeviceChar.currentIndexChanged.connect(self.updateBLEChar)
+        
+        #Connect to Char
+        self.ButtonCharConnect = QPushButton()
+        self.ButtonCharConnect.setText("Connect")
+        self.ButtonCharConnect.setMaximumWidth(315)
+        self.ButtonCharConnect.clicked.connect(self.connectToBLEDeviceChar)
+        self.ButtonCharConnect.setDisabled(True)
+        self.ButtonCharConnect.setDisabled(True)
+        self.ButtonCharConnect.setToolTip('Connect to the selected BLE Device')
+        
         #Add a label to the Test Time Grid Point
         h7layout.addWidget(self.DataTime)
         h7layout.addWidget(QLabel('Sec'))    
@@ -367,13 +445,39 @@ class tabdemo(QTabWidget):
         glayout2.addLayout(h8layout, 9, 5)
         glayout2.addLayout(h10layout, 11, 3, 1, 3)        
         
-        CustomizeDataFrame = QGroupBox()
-        CustomizeDataFrame.setTitle('Customize Data')
-        CustomizeDataFrame.setLayout(glayout2)
+        self.CustomizeDataFrame = QGroupBox()
+        self.CustomizeDataFrame.setTitle('Customize Data')
+        self.CustomizeDataFrame.setLayout(glayout2)
+        self.CustomizeDataFrame.hide()
+        
+        glayout3.setColumnStretch(0, 1)
+        glayout3.setColumnStretch(5, 1)
+        glayout3.addWidget(self.ButtonScan, 3, 3)
+        glayout3.setRowStretch(4, 1)
+        glayout3.addWidget(self.BLEDevice, 5, 3)
+        glayout3.addWidget(self.ButtonConnect, 7, 3)
+        
+        self.BLEOptions = QGroupBox()
+        self.BLEOptions.setTitle('BLE Options')
+        self.BLEOptions.setLayout(glayout3)
+        self.BLEOptions.hide()
+        self.BLEOptions.setMinimumWidth(140)
+        
+        glayout4.addWidget(self.ButtonCharScan, 3, 3)
+        glayout4.setColumnStretch(9, 1)
+        glayout4.addWidget(self.BLEDeviceChar, 3, 5)
+        glayout4.addWidget(self.ButtonCharConnect, 3, 7)
+        
+        self.BLECharastics = QGroupBox()
+        self.BLECharastics = QGroupBox()
+        self.BLECharastics.setTitle('BLE Charastics')
+        self.BLECharastics.setLayout(glayout4)
+        self.BLECharastics.hide()
         
         #Left Column
         v2layout.addLayout(h4layout)
-        v2layout.addWidget(CustomizeDataFrame)
+        v2layout.addWidget(self.CustomizeDataFrame)
+        v2layout.addWidget(self.BLEOptions)
 
         HardwareFrame = QGroupBox()
         HardwareFrame.setTitle('Hardware')
@@ -391,7 +495,7 @@ class tabdemo(QTabWidget):
         fileUnique = 1
         while(os.path.exists("Test-" + str(fileUnique) + '.xlsx')):
             fileUnique += 1;
-        self.fileUniqueStr = str(os.environ['USERPROFILE']) + '\Desktop\Test-' + str(fileUnique) + '.xlsx'
+        self.fileUniqueStr = str(os.environ['USERPROFILE']) + '\Onedrive\Desktop\Test-' + str(fileUnique) + '.xlsx'
         self.FileOutput.setText(self.fileUniqueStr)
         
         self.SaveAs = QPushButton()
@@ -417,6 +521,7 @@ class tabdemo(QTabWidget):
         #Left Size Vertical Layout
         vlayout.addWidget(QHLine())
         vlayout.addLayout(h2layout)
+        vlayout.addWidget(self.BLECharastics)
         vlayout.addWidget(FileOptionsFrame)
         vlayout.addStretch(1)
         # h11layout.addWidget(self.ButtonZero)
@@ -473,7 +578,12 @@ class tabdemo(QTabWidget):
         self.plot.showGrid(x=True, y=True)
         self.plot.setLabel('bottom', 'Sample (N)', color = 'gray', size = 40)
         
-        self.pen = pg.mkPen(color=(59,187,228), width=2)
+        self.pen0 = pg.mkPen(color=(59,187,228), width=2) #blue
+        self.pen1 = pg.mkPen(color=(83,103,176), width=2) #purple
+        self.pen2 = pg.mkPen(color=(255,197,60), width=2) #yellow
+        self.pen3 = pg.mkPen(color=(249,158,62), width=2) #orange
+        self.pen4 = pg.mkPen(color=(131,196,65), width=2) #green
+        self.pen5 = pg.mkPen(color=(239,62,87), width=2) #red #pink (213,76,155)
         self.penGray = pg.mkPen(color=(180,180,180), width=2)
         
         self.x = []#list(range(100))
@@ -501,7 +611,7 @@ class tabdemo(QTabWidget):
         self.plotFixedWidth.hide()
         self.plotFixedWidth.setMinimum(10)
         self.plotFixedWidth.setMaximum(100000)
-        self.plotFixedWidth.setValue(100)
+        self.plotFixedWidth.setValue(1500)
         self.plotFixedWidth.valueChanged.connect(self.plotUpdateData)
         self.plotFixedWidth.setDisabled(True)
         
@@ -717,7 +827,7 @@ class tabdemo(QTabWidget):
             newRate = int(1000 / float(self.DataRate.text()))
 
             if(newRate != self.oldRate):
-                self.DAQ.setSamplingPeriod(newRate, str(self.COMDis.currentText()))
+                self.DAQ.setSamplingPeriod(newRate)
                 self.logMsg('<b>Sample Time: ' + str(newRate) + 'ms</b>', False, 'blue')
                 self.oldRate = newRate
 
@@ -775,6 +885,41 @@ class tabdemo(QTabWidget):
         self.DataTime.setText(arg)
         self.DataTime.blockSignals(False)
 
+#==============================================================================
+# Input Parameters: none
+# Output Returns: none
+#
+# Description: This function opens the window file dialog to save a file
+#==============================================================================
+    def SaveBLEData(self):
+        data = {}
+        now = datetime.datetime.now()
+        
+        dt_string = now.strftime("%m-%d-%y_%I-%M-%S")
+
+        fname = str(os.environ['USERPROFILE']) + '\Onedrive\Desktop\Recovery-' + dt_string + '.json'
+
+        data['data'] = {}
+        data['data']['index'] = self.xAll
+        data['data']['Ax'] = self.yAll
+        data['data']['Ay'] = self.yAll1
+        data['data']['Az'] = self.yAll2
+        data['data']['Gx'] = self.yAll3
+        data['data']['Gy'] = self.yAll4
+        data['data']['Gz'] = self.yAll5
+        data['SampleRate'] = 500
+        data['SWVersion'] = '0.0.0'
+        data['Units'] = {'index': 'count', 'Ax': 'mG', 'Ay': 'mG', 'Az': 'mG', 'Gx': 'mDeg/sec', 'Gy': 'mDeg/sec', 'Gz': 'mDeg/sec'}
+        data['TriggerInfo'] = {}
+        data['TriggerInfo']['count'] = 0
+        data['TriggerInfo']['positions'] = ['0']
+
+        with open(fname, 'w') as outfile:
+            json.dump(data, outfile)
+        
+        if fname != '':
+            print('File Saved As: ' + str(fname))
+        
 #==============================================================================
 # Input Parameters: none
 # Output Returns: none
@@ -910,6 +1055,266 @@ class tabdemo(QTabWidget):
 
         self.DataMultiplier.setText("{:.2f}".format(self.dataOutputMultiplier))
         
+    def ScanBLEDevices(self):
+        self.logMsg('Scanning...', True, 'Blue')
+        self.BLEDevice.setDisabled(True)
+        BLEdevsFull = self.DAQ.scanBLE()
+        if(BLEdevsFull != 'NA'):
+            self.BLEDevice.disconnect()
+            self.BLEDevice.clear()
+            self.BLEDevice.addItem('Select Device')
+            self.BLEDevice.setCurrentIndex(0)
+            self.BLEDevice.setDisabled(False)
+            BLEdevs = BLEdevsFull.split('*')
+            for i in range(0, len(BLEdevs)):
+                info = BLEdevs[i].split('\t')
+                self.logMsg('\t' + str(info[1]) + '\t' + str(info[2]), False, 'Blue')
+                self.BLEDevice.addItem(str(info[1]))
+            self.logMsg('...Scan Complete', True, 'Blue')
+            self.BLEDevice.currentIndexChanged.connect(self.updateBLEDevice)
+            self.ButtonScan.setText('Rescan')
+            self.BLEDevice.show()
+            self.ButtonConnect.show()
+        else:
+            self.logMsg('...Scan Failed', True, 'Red')
+            self.ButtonScan.setText('Scan')
+            self.BLEDevice.hide()
+            self.ButtonConnect.hide()
+    
+    def connectToBLEDevice(self):
+        self.logMsg('Connecting to Device (' + str(self.BLEDevice.currentText()) + ')...', False, 'black')
+        if(self.DAQ.connectBLE(self.BLEDevice.currentIndex() - 1)):
+            self.logMsg('...Connection successful!', False, 'black')
+            self.BLEDevice.setDisabled(True)
+            self.ButtonConnect.setDisabled(True)
+            self.BLECharastics.show()
+            self.ScanBLEDeviceChars() #autoscan for device characteristics after connecting
+        else:
+            self.logMsg('...Error connecting to device', False, 'red')
+            self.BLEDevice.setDisabled(False)
+            self.ButtonConnect.setDisabled(False)
+            self.BLECharastics.hide()
+    
+    def updateBLEDevice(self):
+        if(self.BLEDevice.currentIndex() != 0):
+            self.ButtonConnect.setDisabled(False)
+            self.logMsg('BLE Device Selected: ' + str(self.BLEDevice.currentText()), False, 'black')
+        else:
+            self.ButtonConnect.setDisabled(True)
+            self.logMsg('No Device Selected', False, 'red')
+    
+    def ScanBLEDeviceChars(self):
+        self.logMsg('Scanning...', True, 'Blue')
+        self.BLEDeviceChar.setDisabled(True)
+        BLEcharsFull = self.DAQ.BLECharList()
+        if(BLEcharsFull != 'NA'):
+            self.BLEDeviceChar.disconnect()
+            self.BLEDeviceChar.clear()
+            self.BLEDeviceChar.addItem('Select Characteristic')
+            self.BLEDeviceChar.setCurrentIndex(0)
+            self.BLEDeviceChar.setDisabled(False)
+            BLEchars = BLEcharsFull.split('*')
+            for i in range(0, len(BLEchars)):
+                info = BLEchars[i].split('\t')
+                self.logMsg('\t' + str(info[1]) + '\t' + str(info[2]), False, 'Blue')
+                self.BLEDeviceChar.addItem(str(info[1]))
+            self.logMsg('...Scan Complete', True, 'Blue')
+            self.BLEDeviceChar.currentIndexChanged.connect(self.updateBLEChar)
+            self.ButtonCharScan.setText('Rescan')
+        else:
+            self.logMsg('...Scan Failed', True, 'Red')
+            self.logMsg('...Error connecting to device', False, 'red')
+            self.BLEDeviceChar.setDisabled(False)
+            self.ButtonCharConnect.setDisabled(False)
+            self.logMsg('Restarting BLE Device...', False, 'balck')
+            self.DAQ.restartBLEDevice()
+            self.ButtonScan.setText('Scan')
+            self.BLEDevice.hide()
+            self.ButtonConnect.hide()
+            self.BLECharastics.hide()
+            self.logMsg('...BLE Device Restarted', False, 'balck')
+    
+    def connectToBLEDeviceChar(self):
+        self.logMsg('Connecting to Characteristic (' + str(self.BLEDeviceChar.currentText()) + ')...', False, 'black')
+        if(self.DAQ.connectBLEChar(self.BLEDeviceChar.currentIndex() - 1)):
+            self.logMsg('...Connection successful!', False, 'black')
+            self.BLEDeviceChar.setDisabled(True)
+            self.ButtonCharConnect.setDisabled(True)
+        else: #Connection Failed
+            self.logMsg('...Error connecting to device', False, 'red')
+            self.BLEDeviceChar.setDisabled(False)
+            self.ButtonCharConnect.setDisabled(False)
+            self.logMsg('Restarting BLE Device...', False, 'balck')
+            self.DAQ.restartBLEDevice()
+            self.ButtonScan.setText('Scan')
+            self.BLEDevice.hide()
+            self.ButtonConnect.hide()
+            self.BLECharastics.hide()
+            self.logMsg('...BLE Device Restarted', False, 'balck')
+    
+    def updateBLEChar(self):
+        if(self.BLEDeviceChar.currentIndex() != 0):
+            self.ButtonCharConnect.setDisabled(False)
+            self.logMsg('Characteristic Selected: ' + str(self.BLEDeviceChar.currentText()), False, 'black')
+        else:
+            self.ButtonCharConnect.setDisabled(True)
+            self.logMsg('No Characteristic Selected', False, 'red')
+    
+    def ToggleBLEStartStop(self):
+        print('Starting BLE Plot')
+        self.Start = not(self.Start)
+        if(not(self.Start)):
+            print ('Stop Test')
+            self.testTimer.stop()
+            self.DAQ.Abort = True
+            self.threadpool.waitForDone(100) # wait up to 100mSec for the reading thread to exit before trying to close the COM port
+            
+            self.plot.clear()
+            #self.data_line = self.plot.plot(self.xLive, self.yLive, pen=self.penGray)
+            self.setCurrentIndex(0)
+            self.tab1.setDisabled(False)
+            
+            self.plotStop.setText('Start')
+            self.plotZero.setDisabled(True)
+            self.plotWidth.setDisabled(True)
+            self.plotFixedWidth.setDisabled(True)
+            self.RefreshCOM.setDisabled(False)
+            self.ButtonStart.setToolTip('Start Recording Data')
+            
+            self.logMsg('Saving Data...', True, 'black')
+            
+            self.SaveBLEData()
+            return
+        
+            if(os.path.exists(self.fileUniqueStr)):
+                print(self.fileUniqueStr + ' already exists')
+                reply = QMessageBox.question(self, 'Overwrite File?', 'File already exists,\ndo you want to overwrite?', buttons=QMessageBox.No|QMessageBox.Yes, defaultButton=QMessageBox.No)
+                if reply == QMessageBox.No:
+                    self.SaveExcelAs(self.fileUniqueStr)
+            
+            if(self.SaveData(self.fileUniqueStr)):
+                self.logMsg(self.FileOutput.text(), False, 'black')
+                self.logMsg('...Data Saved!', True, '#00aa00')
+            else:
+                self.logMsg('...Data Could Not be Saved', True, 'red')
+                self.logMsg('Check Recovery Files', True, 'red')
+            
+        else:
+            print ('Starting Test')
+            # update gui
+            self.plotStop.setText('Stop')
+            self.plotZero.setDisabled(False)
+            self.plotWidth.setDisabled(False)
+            self.plotFixedWidth.setDisabled(True)
+            self.RefreshCOM.setDisabled(True)
+            self.tab1.setDisabled(True)
+            self.ButtonStart.setToolTip('Stop Recording Data')
+            self.plotWidth.setCurrentIndex(1) #default to fixed width mode 
+            
+            # jump to live data plot tab
+            self.setCurrentIndex(1)
+            
+            # clear the plot and setup for new data
+            self.plot.clear()
+            self.x=[]
+            self.y=[]
+            self.y1=[]
+            self.y2=[]
+            self.y3=[]
+            self.y4=[]
+            self.y5=[]
+            self.data_line = self.plot.plot(self.x, self.y, pen=self.pen0)
+            self.data_line1 = self.plot.plot(self.x, self.y1, pen=self.pen1)
+            self.data_line2 = self.plot.plot(self.x, self.y1, pen=self.pen2)
+            self.data_line3 = self.plot.plot(self.x, self.y1, pen=self.pen3)
+            self.data_line4 = self.plot.plot(self.x, self.y1, pen=self.pen4)
+            self.data_line5 = self.plot.plot(self.x, self.y1, pen=self.pen5)
+
+            COMPort = str(self.COMDis.currentText())
+            daqWorker = Worker(partial(self.DAQ.readBLEDataUntilStop))
+            daqWorker.signals.serialBLE.connect(self.update_BLE_plot_data)
+            #daqWorker.signals.finished.connect(self.DAQ.COMDisconnect)
+            self.threadpool.start(daqWorker)
+            
+            if(self.DataTime.displayText() != '-'):
+                testTime = int(float(self.DataTime.displayText())*1000)
+                self.testTimer.start(testTime)
+                print('Starting test for: '+str(testTime)+' mSec')
+            print (COMPort)
+    
+    def update_BLE_plot_data(self, serialBLE):
+        data = serialBLE['dAx'].tolist()
+        data1 = serialBLE['dAy'].tolist()
+        data2 = serialBLE['dAz'].tolist()
+        data3= serialBLE['dGx'].tolist()
+        data4 = serialBLE['dGy'].tolist()
+        data5 = serialBLE['dGz'].tolist()
+        xList = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+        if(len(self.x) == 0):
+            self.x = [0]
+            self.xAll = []
+            self.y = []
+            self.y1 = []
+            self.y2 = []
+            self.y3 = []
+            self.y4 = []
+            self.y5 = []
+            self.yAll = []
+            self.yAll1 = []
+            self.yAll2 = []
+            self.yAll3 = []
+            self.yAll4 = []
+            self.yAll5 = []
+        elif(len(self.x) < self.plotFixedWidth.value()):
+            self.x += [x + self.x[-1] for x in xList]
+        else:
+            self.x = self.x[15:]
+            self.x += [x + self.x[-1] for x in xList]
+            self.y = self.y[15:]
+            self.y1 = self.y1[15:]
+            self.y2 = self.y2[15:]
+            self.y3 = self.y3[15:]
+            self.y4 = self.y4[15:]
+            self.y5 = self.y5[15:]
+        
+        self.xAll += [x + self.x[-1] for x in xList]
+        
+        self.y += data
+        self.y1 += data1
+        self.y2 += data2
+        self.y3 += data3
+        self.y4 += data4
+        self.y5 += data5
+        self.yAll += data
+        self.yAll1 += data1
+        self.yAll2 += data2
+        self.yAll3 += data3
+        self.yAll4 += data4
+        self.yAll5 += data5
+    
+        if(self.plotWidth.currentIndex() != 0):
+            self.xLive = self.xAll[-(self.plotFixedWidth.value()):]
+            self.yLive = self.yAll[-(self.plotFixedWidth.value()):]
+            self.yLive1 = self.yAll1[-(self.plotFixedWidth.value()):]
+            self.yLive2 = self.yAll2[-(self.plotFixedWidth.value()):]
+            self.yLive3 = self.yAll3[-(self.plotFixedWidth.value()):]
+            self.yLive4 = self.yAll4[-(self.plotFixedWidth.value()):]
+            self.yLive5 = self.yAll5[-(self.plotFixedWidth.value()):]
+        else:
+            self.xLive, self.yLive = self.downsample(0, len(self.xAll))
+            self.yLive1 = self.yLive
+            self.yLive2 = self.yLive
+            self.yLive3 = self.yLive
+            self.yLive4 = self.yLive
+            self.yLive5 = self.yLive
+    
+        self.data_line.setData(self.xLive, self.yLive)
+        self.data_line1.setData(self.xLive, self.yLive1)
+        self.data_line2.setData(self.xLive, self.yLive2)
+        self.data_line3.setData(self.xLive, self.yLive3)
+        self.data_line4.setData(self.xLive, self.yLive4)
+        self.data_line5.setData(self.xLive, self.yLive5)
+    
 #==============================================================================
 # Input Parameters: none
 # Output Returns: none
@@ -919,13 +1324,15 @@ class tabdemo(QTabWidget):
 # the 'Stop' button.
 #==============================================================================
     def ToggleStartStop(self):
+        if(self.hardwareType == 'BLE'):
+            self.ToggleBLEStartStop()
+            return
         self.Start = not(self.Start)
         if(not(self.Start)):
             print ('Stop Test')
             self.testTimer.stop()
             self.DAQ.Abort = True
             self.threadpool.waitForDone(100) # wait up to 100mSec for the reading thread to exit before trying to close the COM port
-            self.DAQ.CloseCOM()
             
             self.plot.clear()
             self.data_line = self.plot.plot(self.xLive, self.yLive, pen=self.penGray)
@@ -971,12 +1378,11 @@ class tabdemo(QTabWidget):
             self.plot.clear()
             self.x=[]
             self.y=[]
-            self.data_line = self.plot.plot(self.x, self.y, pen=self.pen)
+            self.data_line = self.plot.plot(self.x, self.y, pen=self.pen0)
 
             COMPort = str(self.COMDis.currentText())
-            daqWorker = Worker(partial(self.DAQ.readDataUntilStop, COM=COMPort))
+            daqWorker = Worker(partial(self.DAQ.readDataUntilStop))
             daqWorker.signals.serialData.connect(self.update_plot_data)
-            daqWorker.signals.finished.connect(self.DAQ.CloseCOM)
             self.threadpool.start(daqWorker)
             
             if(self.DataTime.displayText() != '-'):
@@ -995,7 +1401,7 @@ class tabdemo(QTabWidget):
     def SaveData(self, fname):
         print ("Saving to Excel")
         timeIndex = [x*self.oldRate/1000 for x in self.xAll]
-        print(self.xAll)
+        #print(self.xAll)
         pressureHeading = 'Pressure ('+self.DataOutput.currentText()+')'
         data = {'Time (sec)':timeIndex, pressureHeading:self.yAll}
         self.df = pd.DataFrame(data=data)
@@ -1005,7 +1411,7 @@ class tabdemo(QTabWidget):
             return True
         except:
             print ("ERROR - Could not save Excel File!")
-            RecoveryPath = str(os.environ['USERPROFILE']) + '\Desktop\Recovery-' + str(datetime.datetime.now().strftime('%H%M%S') + '.xlsx')
+            RecoveryPath = str(os.environ['USERPROFILE']) + '\Onedrive\Desktop\Recovery-' + str(datetime.datetime.now().strftime('%H%M%S') + '.xlsx')
             self.df.to_excel(RecoveryPath)
             print ("File Recovery avaliable at: " + RecoveryPath)
             return False
@@ -1071,6 +1477,8 @@ if __name__ == '__main__':
     import os
     splash.showMessage(offset + "Loading Modules: numpy", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     import numpy as np
+    splash.showMessage(offset + "Loading Modules: json", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
+    import json
     # splash.showMessage(offset + "Loading Modules: scipy\n\n", QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
     # import scipy
 
@@ -1078,6 +1486,7 @@ if __name__ == '__main__':
 
     #Start the GUI, (tabdemo)
     form = tabdemo()
+    app.aboutToQuit.connect(form.myExitHandler)
     form.show()
     #Close the splash screen
     splash.finish(form)
