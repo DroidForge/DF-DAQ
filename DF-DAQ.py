@@ -912,7 +912,7 @@ class tabdemo(QTabWidget):
         data['Units'] = {'index': 'count', 'Ax': 'mG', 'Ay': 'mG', 'Az': 'mG', 'Gx': 'mDeg/sec', 'Gy': 'mDeg/sec', 'Gz': 'mDeg/sec'}
         data['TriggerInfo'] = {}
         data['TriggerInfo']['count'] = 0
-        data['TriggerInfo']['positions'] = ['0']
+        data['TriggerInfo']['positions'] = []
 
         with open(fname, 'w') as outfile:
             json.dump(data, outfile)
