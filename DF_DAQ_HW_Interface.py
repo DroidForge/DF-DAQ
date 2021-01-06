@@ -123,7 +123,7 @@ class DF_DAQ():
                        "Setup"      :"x\n",#Setup Info
                        "Read"       :"r\n",#Read Sensor
                        "Zero"       :"z\n",#Zero Sensor Reading
-                       "Scan"       :"n\n",#Scan for BLE Devices
+                       "Scan"       :"n2000\n",#Scan for BLE Devices
                        "Connect"    :"c" + data + "\n",#Connect to BLE
                        "List"       :"l\n",#List the BLE characteristic data 
                        "ConnectChar":"C" + data + "\n" #Connect to BLE characteristic 
@@ -258,7 +258,7 @@ class DF_DAQ():
                     return 'NA'
     
     def getFirmVer(self):
-        self.ser.timeout = 1
+        self.ser.timeout = 2
 
         print ('Sending Version Command')
         self._SendCommand('Version', "")
